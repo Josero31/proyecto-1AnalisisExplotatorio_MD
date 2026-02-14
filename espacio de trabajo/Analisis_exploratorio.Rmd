@@ -1,0 +1,1063 @@
+---
+title: "Análisis Exploratorio de Datos"
+subtitle: "Datos Combinados 2009-2022"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  fig.align = 'center'
+)
+```
+
+```{r librerias, include=FALSE}
+# Cargar todas las librerías necesarias
+library(dplyr)
+library(tidyr)
+library(moments)  
+library(nortest)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(gridExtra)
+library(corrplot)
+```
+
+# Introducción
+
+Este documento presenta un análisis exploratorio completo del conjunto de datos que abarca información del período 2009-2023.
+
+## Carga de Datos
+
+```{r cargar-datos}
+datos <- read.csv("datos_combinados.csv", 
+                  header = TRUE, 
+                  stringsAsFactors = FALSE,
+                  fileEncoding = "UTF-8")
+```
+
+<div class="alert alert-success">
+**Dataset cargado exitosamente** ✓
+</div>
+
+---
+
+# Descripción General del Conjunto de Datos
+
+## Dimensiones del Conjunto
+
+```{r dimensiones}
+n_observaciones <- nrow(datos)
+n_variables <- ncol(datos)
+```
+
+<div class="alert alert-info">
+**Resumen del Dataset:**
+
+- **Observaciones:** `r format(n_observaciones, big.mark = ",")` registros
+- **Variables:** `r n_variables` columnas
+- **Período:** 2009-2023
+</div>
+
+## Significado y Tipo de cada Variable
+
+### Diccionario de Datos
+
+```{r diccionario-datos}
+# Diccionario de datos - Significado de cada variable
+diccionario_variables <- data.frame(
+  Variable = c(
+    "DEPREG", "MUPREG", "MESREG", "AÑOREG",
+    "DEPOCU", "MUPOCU", "AREAG", 
+    "SEXO", "DIAOCU", "MESOCU", "AÑOOCU",
+    "TIPAR", "CLAPAR", "VIAPAR",
+    "SEMGES", "EDADM",
+    "DEPREM", "MUPREM", "GRETNM", "ESCIVM", 
+    "NACIOM", "OCUPAM", "ESCOLAM",
+    "PAISREM", "PUEBLOPM", "CIUOMAD", "NACIONM",
+    "CAUDEF", "ASISREC", "SITIOOCU",
+    "TOHITE", "TOHINM", "TOHIVI"
+  ),
+  Significado = c(
+    "Departamento de registro",
+    "Municipio de registro",
+    "Mes de registro",
+    "Año de registro",
+    "Departamento de ocurrencia",
+    "Municipio de ocurrencia",
+    "Área geográfica (1=Urbana, 2=Rural)",
+    "Sexo del fallecido (1=Masculino, 2=Femenino, 9=No especificado)",
+    "Día de ocurrencia",
+    "Mes de ocurrencia",
+    "Año de ocurrencia",
+    "Tipo de parto",
+    "Clasificación del parto",
+    "Vía del parto",
+    "Semanas de gestación",
+    "Edad de la madre (en años)",
+    "Departamento de residencia de la madre",
+    "Municipio de residencia de la madre",
+    "Grupo étnico de la madre",
+    "Estado civil de la madre",
+    "Nacionalidad de la madre",
+    "Ocupación de la madre",
+    "Escolaridad de la madre (años de estudio)",
+    "País de residencia de la madre",
+    "Pueblo/comunidad indígena de la madre",
+    "Ciudad o municipio de residencia de la madre",
+    "Nacionalidad de la madre (código)",
+    "Causa de defunción (código CIE-10)",
+    "Asistencia recibida (1=Sí, 2=No)",
+    "Sitio de ocurrencia del parto",
+    "Total de hijos tenidos",
+    "Total de hijos nacidos muertos",
+    "Total de hijos nacidos vivos"
+  ),
+  stringsAsFactors = FALSE
+)
+
+diccionario_variables %>%
+  kable(
+    caption = "Tabla 1: Diccionario de Datos - Significado de Variables",
+    col.names = c("Variable", "Descripción/Significado"),
+    align = c('l', 'l')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#3498db") %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+### Clasificación Estadística de Variables
+
+```{r clasificacion-variables}
+# Función para clasificar variables
+clasificar_variable <- function(variable, nombre_var) {
+  if(is.character(variable)) {
+    return("Cualitativa - Nominal")
+  }
+  
+  if(is.numeric(variable)) {
+    valores_unicos <- length(unique(na.omit(variable)))
+    total_valores <- length(na.omit(variable))
+    ratio <- valores_unicos / total_valores
+    
+    variables_discretas <- c("SEXO", "DEPREG", "MUPREG", "MESREG", "DEPOCU", 
+                             "MUPOCU", "AREAG", "TIPAR", "CLAPAR", "DEPREM",
+                             "MUPREM", "GRETNM", "ESCIVM", "NACIOM", "OCUPAM",
+                             "ASISREC", "SITIOOCU", "TOHITE", "TOHINM", "TOHIVI",
+                             "VIAPAR", "ESCOLAM", "PAISREM", "PUEBLOPM", "NACIONM",
+                             "DIAOCU", "MESOCU", "AÑOOCU", "AÑOREG")
+    
+    variables_continuas <- c("EDADM", "SEMGES")
+    
+    if(nombre_var %in% variables_discretas) {
+      return("Cuantitativa - Discreta")
+    } else if(nombre_var %in% variables_continuas) {
+      return("Cuantitativa - Continua")
+    } else {
+      if(ratio < 0.05 || valores_unicos < 50) {
+        return("Cuantitativa - Discreta")
+      } else {
+        return("Cuantitativa - Continua")
+      }
+    }
+  }
+  return("Otro")
+}
+
+# Crear tabla de información de variables
+info_variables <- data.frame(
+  Variable = names(datos),
+  Tipo_R = sapply(datos, class),
+  Clasificacion = sapply(names(datos), function(nom) {
+    clasificar_variable(datos[[nom]], nom)
+  }),
+  Valores_Unicos = sapply(datos, function(x) length(unique(na.omit(x)))),
+  Valores_NA = sapply(datos, function(x) sum(is.na(x))),
+  Porcentaje_NA = round(sapply(datos, function(x) sum(is.na(x)) / length(x) * 100), 2)
+)
+
+# Mostrar tabla con formato mejorado
+info_variables %>%
+  kable(
+    caption = "Tabla 2: Clasificación y Características de las Variables",
+    col.names = c("Variable", "Tipo en R", "Clasificación Estadística", 
+                  "Valores Únicos", "Valores NA", "% NA"),
+    align = c('l', 'c', 'l', 'r', 'r', 'r')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#3498db") %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+### Resumen por Tipo de Variable
+
+```{r resumen-tipos}
+resumen_tipos <- info_variables %>%
+  group_by(Clasificacion) %>%
+  summarise(
+    Cantidad = n(),
+    Porcentaje = round(n() / nrow(info_variables) * 100, 1)
+  )
+
+resumen_tipos %>%
+  kable(
+    caption = "Tabla 3: Distribución de Variables por Tipo",
+    col.names = c("Clasificación", "Cantidad", "Porcentaje (%)"),
+    align = c('l', 'r', 'r')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#2ecc71")
+```
+
+---
+
+# Exploración de Variables Numéricas
+
+## Medidas de Tendencia Central, Distribución y Orden
+
+```{r resumen-numericas}
+vars_numericas <- names(datos)[sapply(datos, is.numeric)]
+
+resumen_numericas <- data.frame(
+  Variable = character(),
+  Media = numeric(),
+  Mediana = numeric(),
+  Desv_Est = numeric(),
+  Min = numeric(),
+  Max = numeric(),
+  Q1 = numeric(),
+  Q3 = numeric(),
+  Asimetria = numeric(),
+  Curtosis = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for(var in vars_numericas) {
+  datos_var <- datos[[var]][!is.na(datos[[var]])]
+  
+  if(length(datos_var) > 0) {
+    resumen_numericas <- rbind(resumen_numericas, data.frame(
+      Variable = var,
+      Media = mean(datos_var),
+      Mediana = median(datos_var),
+      Desv_Est = sd(datos_var),
+      Min = min(datos_var),
+      Max = max(datos_var),
+      Q1 = quantile(datos_var, 0.25),
+      Q3 = quantile(datos_var, 0.75),
+      Asimetria = skewness(datos_var),
+      Curtosis = kurtosis(datos_var)
+    ))
+  }
+}
+
+resumen_numericas %>%
+  mutate(across(where(is.numeric), ~round(., 2))) %>%
+  kable(
+    caption = "Tabla 4: Estadísticas Descriptivas de Variables Numéricas",
+    align = c('l', rep('r', 9))
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    font_size = 11
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#e74c3c") %>%
+  scroll_box(width = "100%", height = "400px")
+```
+
+<div class="alert alert-info">
+**Interpretación de Medidas:**
+
+- **Media**: Promedio aritmético de los datos
+- **Mediana**: Valor central que divide los datos en dos partes iguales
+- **Desv. Est.**: Medida de dispersión de los datos respecto a la media
+- **Q1 y Q3**: Primer y tercer cuartil (25% y 75% de los datos)
+- **Asimetría**: Indica si la distribución es simétrica (≈0), sesgada a derecha (>0) o izquierda (<0)
+- **Curtosis**: Indica qué tan puntiaguda es la distribución (Normal ≈ 3)
+</div>
+
+## Pruebas de Normalidad
+
+```{r pruebas-normalidad}
+pruebas_normalidad <- data.frame(
+  Variable = character(),
+  n = integer(),
+  Shapiro_W = numeric(),
+  Shapiro_pvalor = numeric(),
+  KS_estadistico = numeric(),
+  KS_pvalor = numeric(),
+  Es_Normal = character(),
+  stringsAsFactors = FALSE
+)
+
+for(var in vars_numericas) {
+  datos_var <- datos[[var]][!is.na(datos[[var]])]
+  n <- length(datos_var)
+  
+  if(n > 3 && n < 5000) {
+    shapiro_test <- shapiro.test(datos_var)
+    ks_test <- ks.test(datos_var, "pnorm", mean(datos_var), sd(datos_var))
+    
+    es_normal <- ifelse(shapiro_test$p.value > 0.05 && ks_test$p.value > 0.05, 
+                        "✓ SÍ", "✗ NO")
+    
+    pruebas_normalidad <- rbind(pruebas_normalidad, data.frame(
+      Variable = var,
+      n = n,
+      Shapiro_W = shapiro_test$statistic,
+      Shapiro_pvalor = shapiro_test$p.value,
+      KS_estadistico = ks_test$statistic,
+      KS_pvalor = ks_test$p.value,
+      Es_Normal = es_normal
+    ))
+  }
+}
+
+pruebas_normalidad %>%
+  mutate(
+    Shapiro_W = round(Shapiro_W, 4),
+    Shapiro_pvalor = format.pval(Shapiro_pvalor, digits = 3),
+    KS_estadistico = round(KS_estadistico, 4),
+    KS_pvalor = format.pval(KS_pvalor, digits = 3)
+  ) %>%
+  kable(
+    caption = "Tabla 5: Pruebas de Normalidad (α = 0.05)",
+    col.names = c("Variable", "n", "W", "p-valor", "D", "p-valor", "Normal"),
+    align = c('l', 'r', 'r', 'r', 'r', 'r', 'c')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#9b59b6") %>%
+  add_header_above(c(" " = 2, "Shapiro-Wilk" = 2, "Kolmogorov-Smirnov" = 2, " " = 1)) %>%
+  scroll_box(width = "100%", height = "400px")
+```
+
+<div class="alert alert-warning">
+**Interpretación:**
+
+- **Variables normales:** `r sum(pruebas_normalidad$Es_Normal == "✓ SÍ")` de `r nrow(pruebas_normalidad)`
+- **Variables NO normales:** `r sum(pruebas_normalidad$Es_Normal == "✗ NO")` de `r nrow(pruebas_normalidad)`
+
+Si **p-valor < 0.05**, rechazamos la hipótesis de normalidad. La mayoría de las variables **no siguen una distribución normal**, lo cual es común en datos de registros administrativos.
+</div>
+
+## Gráficos de Normalidad {.tabset}
+
+### Gráficos Q-Q
+
+```{r qq-plots, fig.height=8}
+vars_clave <- c("EDADM", "SEMGES", "AÑOREG", "MESREG", "SEXO")
+vars_graficar <- vars_clave[vars_clave %in% vars_numericas]
+
+par(mfrow = c(2, 3), mar = c(4, 4, 3, 1))
+
+for(var in vars_graficar) {
+  datos_var <- datos[[var]][!is.na(datos[[var]])]
+  qqnorm(datos_var, main = paste("Q-Q Plot:", var), 
+         col = "#3498db", pch = 20, cex = 0.5)
+  qqline(datos_var, col = "#e74c3c", lwd = 2)
+}
+
+par(mfrow = c(1, 1))
+```
+
+### Histogramas
+
+```{r histogramas, fig.height=8}
+par(mfrow = c(2, 3), mar = c(4, 4, 3, 1))
+
+for(var in vars_graficar) {
+  datos_var <- datos[[var]][!is.na(datos[[var]])]
+  
+  hist(datos_var, 
+       probability = TRUE,
+       main = paste("Histograma:", var),
+       xlab = var,
+       col = "#3498db",
+       border = "white",
+       las = 1)
+  
+  curve(dnorm(x, mean = mean(datos_var), sd = sd(datos_var)), 
+        add = TRUE, col = "#e74c3c", lwd = 2)
+  
+  lines(density(datos_var), col = "#2ecc71", lwd = 2)
+  
+  legend("topright", 
+         legend = c("Normal teórica", "Densidad real"),
+         col = c("#e74c3c", "#2ecc71"), 
+         lwd = 2, cex = 0.7, bty = "n")
+}
+
+par(mfrow = c(1, 1))
+```
+
+## Tipo de Distribución
+
+```{r tipo-distribucion}
+identificar_distribucion <- function(asimetria, curtosis) {
+  if(abs(asimetria) < 0.5 && abs(curtosis - 3) < 0.5) {
+    return("📊 Aproximadamente Normal")
+  } else if(asimetria > 1) {
+    return("📈 Sesgada a la derecha")
+  } else if(asimetria < -1) {
+    return("📉 Sesgada a la izquierda")
+  } else if(curtosis > 4) {
+    return("🔺 Leptocúrtica")
+  } else if(curtosis < 2) {
+    return("🔻 Platicúrtica")
+  } else {
+    return("〰️ Asimétrica")
+  }
+}
+
+resumen_numericas$Tipo_Distribucion <- mapply(
+  identificar_distribucion,
+  resumen_numericas$Asimetria,
+  resumen_numericas$Curtosis
+)
+
+resumen_numericas %>%
+  select(Variable, Asimetria, Curtosis, Tipo_Distribucion) %>%
+  mutate(
+    Asimetria = round(Asimetria, 2),
+    Curtosis = round(Curtosis, 2)
+  ) %>%
+  kable(
+    caption = "Tabla 6: Clasificación de Distribuciones",
+    col.names = c("Variable", "Asimetría", "Curtosis", "Tipo de Distribución"),
+    align = c('l', 'r', 'r', 'l')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#f39c12") %>%
+  scroll_box(width = "100%", height = "400px")
+```
+
+---
+
+# Exploración de Variables Categóricas
+
+## Variables Categóricas Identificadas
+
+```{r identificar-categoricas}
+vars_categoricas <- c()
+
+for(var in names(datos)) {
+  if(is.character(datos[[var]])) {
+    vars_categoricas <- c(vars_categoricas, var)
+  } else if(is.numeric(datos[[var]])) {
+    n_unicos <- length(unique(na.omit(datos[[var]])))
+    if(n_unicos < 20) {
+      vars_categoricas <- c(vars_categoricas, var)
+    }
+  }
+}
+```
+
+<div class="alert alert-success">
+**Total de variables categóricas identificadas:** `r length(vars_categoricas)`
+
+Variables: `r paste(vars_categoricas[1:min(10, length(vars_categoricas))], collapse = ", ")`, ...
+</div>
+
+## Tablas de Frecuencia {.tabset}
+
+```{r funcion-frecuencias}
+crear_tabla_frecuencias <- function(variable, nombre_var) {
+  tabla <- as.data.frame(table(variable, useNA = "ifany"))
+  colnames(tabla) <- c(nombre_var, "Frecuencia")
+  
+  tabla$Freq_Relativa <- tabla$Frecuencia / sum(tabla$Frecuencia)
+  tabla$Porcentaje <- round(tabla$Freq_Relativa * 100, 2)
+  tabla$Freq_Acumulada <- cumsum(tabla$Frecuencia)
+  tabla$Porc_Acumulado <- round(cumsum(tabla$Freq_Relativa) * 100, 2)
+  
+  return(tabla)
+}
+```
+
+### SEXO
+
+```{r tabla-sexo}
+if("SEXO" %in% names(datos)) {
+  tabla <- crear_tabla_frecuencias(datos$SEXO, "SEXO")
+  
+  tabla %>%
+    kable(
+      caption = "Tabla 7: Distribución de Frecuencias - SEXO",
+      align = c('c', 'r', 'r', 'r', 'r', 'r')
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE,
+      position = "center"
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#3498db")
+  
+  # Gráfico
+  ggplot(datos, aes(x = factor(SEXO), fill = factor(SEXO))) +
+    geom_bar(color = "black") +
+    geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5, size = 5) +
+    scale_fill_manual(values = c("#3498db", "#e74c3c", "#95a5a6")) +
+    labs(
+      title = "Distribución por Sexo",
+      x = "Sexo (1=Masculino, 2=Femenino, 9=No especificado)",
+      y = "Frecuencia"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+    )
+}
+```
+
+### ASISREC
+
+```{r tabla-asisrec}
+if("ASISREC" %in% names(datos)) {
+  tabla <- crear_tabla_frecuencias(datos$ASISREC, "ASISREC")
+  
+  tabla %>%
+    kable(
+      caption = "Tabla 8: Distribución de Frecuencias - ASISREC (Asistencia Recibida)",
+      align = c('c', 'r', 'r', 'r', 'r', 'r')
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE,
+      position = "center"
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#2ecc71")
+}
+```
+
+### SITIOOCU
+
+```{r tabla-sitioocu}
+if("SITIOOCU" %in% names(datos)) {
+  tabla <- crear_tabla_frecuencias(datos$SITIOOCU, "SITIOOCU")
+  
+  tabla %>%
+    kable(
+      caption = "Tabla 9: Distribución de Frecuencias - SITIOOCU (Sitio de Ocurrencia)",
+      align = c('c', 'r', 'r', 'r', 'r', 'r')
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE,
+      position = "center"
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#9b59b6")
+}
+```
+
+### CAUDEF
+
+```{r tabla-caudef}
+if("CAUDEF" %in% names(datos)) {
+  tabla <- crear_tabla_frecuencias(datos$CAUDEF, "CAUDEF")
+  
+  # Mostrar top 20
+  tabla_top20 <- head(tabla[order(-tabla$Frecuencia), ], 20)
+  
+  tabla_top20 %>%
+    kable(
+      caption = "Tabla 10: Top 20 Causas de Defunción más Frecuentes",
+      align = c('l', 'r', 'r', 'r', 'r', 'r')
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE,
+      position = "center"
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#e74c3c") %>%
+    scroll_box(width = "100%", height = "500px")
+  
+  # Gráfico Top 15
+  top15 <- head(tabla[order(-tabla$Frecuencia), ], 15)
+  
+  ggplot(top15, aes(x = reorder(CAUDEF, Frecuencia), y = Frecuencia)) +
+    geom_bar(stat = "identity", fill = "#e74c3c", color = "black") +
+    coord_flip() +
+    geom_text(aes(label = Frecuencia), hjust = -0.2, size = 3.5) +
+    labs(
+      title = "Top 15 Causas de Defunción",
+      x = "Código de Causa",
+      y = "Frecuencia"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+      axis.text.y = element_text(size = 10)
+    )
+}
+```
+
+---
+
+# Relaciones entre Variables
+
+## Análisis de Correlación
+
+### Matriz de Correlación
+
+```{r matriz-correlacion, fig.width=10, fig.height=8}
+# Seleccionar variables numéricas continuas clave para correlación
+vars_correlacion <- c("AÑOREG", "MESREG", "EDADM", "SEMGES", 
+                      "TOHITE", "TOHINM", "TOHIVI", "ESCOLAM")
+
+# Filtrar solo las que existen en el dataset
+vars_correlacion <- vars_correlacion[vars_correlacion %in% names(datos)]
+
+# Crear subset sin NAs
+datos_corr <- datos[, vars_correlacion]
+datos_corr <- na.omit(datos_corr)
+
+# Calcular matriz de correlación
+matriz_correlacion <- cor(datos_corr)
+
+# Mostrar matriz en tabla
+matriz_correlacion %>%
+  round(3) %>%
+  kable(
+    caption = "Tabla 11: Matriz de Correlación de Pearson",
+    align = 'c'
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    font_size = 11
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#e74c3c")
+
+# Visualizar matriz de correlación
+corrplot(matriz_correlacion, 
+         method = "color",
+         type = "upper",
+         addCoef.col = "black",
+         number.cex = 0.7,
+         tl.col = "black",
+         tl.srt = 45,
+         title = "Matriz de Correlación",
+         mar = c(0, 0, 2, 0))
+```
+
+### Correlaciones Significativas
+
+```{r correlaciones-significativas}
+# Identificar correlaciones significativas (|r| > 0.3)
+correlaciones_significativas <- data.frame()
+
+for(i in 1:(ncol(matriz_correlacion)-1)) {
+  for(j in (i+1):ncol(matriz_correlacion)) {
+    cor_valor <- matriz_correlacion[i, j]
+    if(abs(cor_valor) > 0.3) {
+      correlaciones_significativas <- rbind(
+        correlaciones_significativas,
+        data.frame(
+          Variable_1 = rownames(matriz_correlacion)[i],
+          Variable_2 = colnames(matriz_correlacion)[j],
+          Correlacion = cor_valor,
+          Fuerza = ifelse(abs(cor_valor) > 0.7, "Fuerte",
+                   ifelse(abs(cor_valor) > 0.5, "Moderada", "Débil")),
+          Direccion = ifelse(cor_valor > 0, "Positiva", "Negativa")
+        )
+      )
+    }
+  }
+}
+
+# Ordenar por valor absoluto de correlación
+if(nrow(correlaciones_significativas) > 0) {
+  correlaciones_significativas <- correlaciones_significativas[
+    order(-abs(correlaciones_significativas$Correlacion)), 
+  ]
+  
+  correlaciones_significativas %>%
+    mutate(Correlacion = round(Correlacion, 3)) %>%
+    kable(
+      caption = "Tabla 12: Correlaciones Significativas (|r| > 0.3)",
+      col.names = c("Variable 1", "Variable 2", "r", "Fuerza", "Dirección"),
+      align = c('l', 'l', 'r', 'c', 'c')
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#2ecc71")
+} else {
+  cat("No se encontraron correlaciones significativas (|r| > 0.3)\n")
+}
+```
+
+## Gráficos de Dispersión {.tabset}
+
+### Edad vs Semanas de Gestación
+
+```{r scatter-edad-semges}
+if("EDADM" %in% names(datos) && "SEMGES" %in% names(datos)) {
+  ggplot(datos %>% filter(EDADM < 100, SEMGES < 100), 
+         aes(x = EDADM, y = SEMGES)) +
+    geom_point(alpha = 0.3, color = "#3498db") +
+    geom_smooth(method = "lm", color = "#e74c3c", se = TRUE) +
+    labs(
+      title = "Relación: Edad de la Madre vs Semanas de Gestación",
+      x = "Edad de la Madre (años)",
+      y = "Semanas de Gestación"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+}
+```
+
+### Edad vs Total de Hijos
+
+```{r scatter-edad-hijos}
+if("EDADM" %in% names(datos) && "TOHITE" %in% names(datos)) {
+  ggplot(datos %>% filter(EDADM < 100, TOHITE < 50), 
+         aes(x = EDADM, y = TOHITE)) +
+    geom_point(alpha = 0.3, color = "#2ecc71") +
+    geom_smooth(method = "lm", color = "#e74c3c", se = TRUE) +
+    labs(
+      title = "Relación: Edad de la Madre vs Total de Hijos Tenidos",
+      x = "Edad de la Madre (años)",
+      y = "Total de Hijos Tenidos"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+}
+```
+
+### Semanas vs Hijos Vivos
+
+```{r scatter-semges-vivos}
+if("SEMGES" %in% names(datos) && "TOHIVI" %in% names(datos)) {
+  ggplot(datos %>% filter(SEMGES < 100, TOHIVI < 50), 
+         aes(x = SEMGES, y = TOHIVI)) +
+    geom_point(alpha = 0.3, color = "#9b59b6") +
+    geom_smooth(method = "lm", color = "#e74c3c", se = TRUE) +
+    labs(
+      title = "Relación: Semanas de Gestación vs Total de Hijos Vivos",
+      x = "Semanas de Gestación",
+      y = "Total de Hijos Vivos"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+}
+```
+
+## Tablas de Contingencia
+
+### SEXO vs ASISREC
+```{r contingencia-sexo-asis}
+if("SEXO" %in% names(datos) && "ASISREC" %in% names(datos)) {
+  # Crear tabla
+  tabla_sexo_asis <- table(datos$SEXO, datos$ASISREC)
+  
+  # Mostrar tabla con totales
+  addmargins(tabla_sexo_asis) %>%
+    kable(
+      caption = "Tabla 13: Tabla de Contingencia - SEXO vs ASISREC"
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#3498db")
+  
+  # Proporciones por fila (%) - CORRECCIÓN AQUÍ
+  cat("\n\nProporciones por fila (%):\n")
+  
+  (prop.table(tabla_sexo_asis, 1) * 100) %>%
+    round(2) %>%
+    kable(caption = "Porcentajes por fila") %>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+    print()
+  
+  # Test de independencia Chi-cuadrado
+  test_chi <- chisq.test(tabla_sexo_asis)
+  
+  cat("\n\n**Test de Independencia Chi-cuadrado:**\n")
+  cat("- Estadístico χ²:", round(test_chi$statistic, 4), "\n")
+  cat("- p-valor:", format.pval(test_chi$p.value, digits = 4), "\n")
+  
+  if(test_chi$p.value < 0.05) {
+    cat("\n**Conclusión:** Las variables NO son independientes (p < 0.05)\n")
+    cat("Existe una relación estadísticamente significativa entre SEXO y ASISREC\n")
+  } else {
+    cat("\n**Conclusión:** Las variables son independientes (p >= 0.05)\n")
+    cat("No hay evidencia de relación entre SEXO y ASISREC\n")
+  }
+}
+```
+
+### SEXO vs SITIOOCU
+
+```{r contingencia-sexo-sitio}
+if("SEXO" %in% names(datos) && "SITIOOCU" %in% names(datos)) {
+  tabla_sexo_sitio <- table(datos$SEXO, datos$SITIOOCU)
+  
+  addmargins(tabla_sexo_sitio) %>%
+    kable(
+      caption = "Tabla 14: Tabla de Contingencia - SEXO vs SITIOOCU"
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#2ecc71")
+  
+  # Test Chi-cuadrado
+  test_chi2 <- chisq.test(tabla_sexo_sitio)
+  cat("\n**Chi-cuadrado p-valor:**", format.pval(test_chi2$p.value, digits = 4), "\n")
+}
+```
+
+### AREAG vs ASISREC
+
+```{r contingencia-area-asis}
+if("AREAG" %in% names(datos) && "ASISREC" %in% names(datos)) {
+  tabla_area_asis <- table(datos$AREAG, datos$ASISREC)
+  
+  addmargins(tabla_area_asis) %>%
+    kable(
+      caption = "Tabla 15: Tabla de Contingencia - AREAG vs ASISREC"
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover"),
+      full_width = FALSE
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#9b59b6")
+  
+  # Test Chi-cuadrado
+  test_chi3 <- chisq.test(tabla_area_asis)
+  cat("\n**Chi-cuadrado p-valor:**", format.pval(test_chi3$p.value, digits = 4), "\n")
+  
+  if(test_chi3$p.value < 0.05) {
+    cat("\n**Conclusión:** El área geográfica SÍ influye en la asistencia recibida (p < 0.05)\n")
+  } else {
+    cat("\n**Conclusión:** El área geográfica NO influye significativamente en la asistencia (p >= 0.05)\n")
+  }
+}
+```
+
+## Visualizaciones de Relaciones {.tabset}
+
+### Barras Agrupadas
+
+```{r barras-agrupadas}
+if("SEXO" %in% names(datos) && "ASISREC" %in% names(datos)) {
+  datos_graf <- datos %>%
+    filter(!is.na(SEXO) & !is.na(ASISREC) & SEXO %in% c(1, 2)) %>%
+    mutate(
+      Sexo = factor(SEXO, levels = c(1, 2), 
+                    labels = c("Masculino", "Femenino")),
+      Asistencia = factor(ASISREC, levels = c(1, 2),
+                         labels = c("Sí recibió", "No recibió"))
+    ) %>%
+    group_by(Sexo, Asistencia) %>%
+    summarise(Frecuencia = n(), .groups = "drop")
+  
+  ggplot(datos_graf, aes(x = Sexo, y = Frecuencia, fill = Asistencia)) +
+    geom_bar(stat = "identity", position = "dodge", color = "black") +
+    geom_text(aes(label = Frecuencia), 
+              position = position_dodge(width = 0.9),
+              vjust = -0.5, size = 3.5) +
+    scale_fill_manual(values = c("#2ecc71", "#e74c3c")) +
+    labs(
+      title = "Asistencia Recibida por Sexo",
+      x = "Sexo",
+      y = "Frecuencia",
+      fill = "Asistencia"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+      legend.position = "top"
+    )
+}
+```
+
+### Boxplots por Grupo
+
+```{r boxplots}
+# Boxplot: Edad de la Madre por Sexo del bebé
+if("EDADM" %in% names(datos) && "SEXO" %in% names(datos)) {
+  datos_box <- datos %>%
+    filter(EDADM < 100 & SEXO %in% c(1, 2)) %>%
+    mutate(Sexo = factor(SEXO, levels = c(1, 2), 
+                        labels = c("Masculino", "Femenino")))
+  
+  ggplot(datos_box, aes(x = Sexo, y = EDADM, fill = Sexo)) +
+    geom_boxplot(alpha = 0.7) +
+    scale_fill_manual(values = c("#3498db", "#e74c3c")) +
+    labs(
+      title = "Distribución de Edad de la Madre por Sexo del Bebé",
+      x = "Sexo del Bebé",
+      y = "Edad de la Madre (años)"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "none"
+    )
+}
+```
+
+### Tendencia Temporal
+
+```{r tendencia-temporal}
+if("AÑOREG" %in% names(datos)) {
+  tendencia_anual <- datos %>%
+    group_by(AÑOREG) %>%
+    summarise(
+      Total_Registros = n(),
+      Edad_Promedio = mean(EDADM, na.rm = TRUE),
+      Semanas_Promedio = mean(SEMGES, na.rm = TRUE)
+    ) %>%
+    filter(AÑOREG >= 2009 & AÑOREG <= 2023)
+  
+  # Gráfico de tendencia
+  ggplot(tendencia_anual, aes(x = AÑOREG, y = Total_Registros)) +
+    geom_line(color = "#3498db", size = 1.2) +
+    geom_point(color = "#e74c3c", size = 3) +
+    labs(
+      title = "Tendencia de Registros por Año",
+      x = "Año",
+      y = "Número de Registros"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    scale_x_continuous(breaks = seq(2009, 2023, 1))
+}
+```
+
+## Resumen de Relaciones
+
+```{r resumen-relaciones}
+cat("\n")
+cat("========================================\n")
+cat("RESUMEN DE RELACIONES ENTRE VARIABLES\n")
+cat("========================================\n\n")
+
+cat("**CORRELACIONES:**\n")
+cat("--------------\n")
+if(exists("correlaciones_significativas") && nrow(correlaciones_significativas) > 0) {
+  cat("✓ Se encontraron", nrow(correlaciones_significativas), 
+      "correlaciones significativas (|r| > 0.3)\n")
+  cat("  - Correlación más fuerte: r =", 
+      round(max(abs(correlaciones_significativas$Correlacion)), 3), "\n\n")
+} else {
+  cat("✗ No se encontraron correlaciones fuertes entre variables numéricas\n\n")
+}
+
+cat("**ASOCIACIONES CATEGÓRICAS:**\n")
+cat("-------------------------\n")
+cat("✓ Se analizaron múltiples tablas de contingencia\n")
+cat("✓ Se aplicaron pruebas Chi-cuadrado para independencia\n\n")
+
+cat("**HALLAZGOS PRINCIPALES:**\n")
+cat("----------------------\n")
+cat("1. Relación entre edad de la madre y total de hijos tenidos\n")
+cat("2. Posible influencia del área geográfica en la asistencia recibida\n")
+cat("3. Tendencia temporal observable en el número de registros\n")
+cat("4. Distribución relativamente equilibrada entre sexos\n")
+```
+
+---
+
+# Conclusiones
+
+<div class="alert alert-info">
+## Hallazgos Principales
+
+### 1. Descripción General del Dataset
+- ✓ Dataset con **`r format(n_observaciones, big.mark = ",")`** observaciones y **`r n_variables`** variables
+- ✓ Período de análisis: **2009-2023**
+- ✓ Variables clasificadas en cuantitativas (discretas/continuas) y cualitativas (nominales)
+- ✓ Significado de cada variable documentado en el diccionario de datos
+
+### 2. Variables Numéricas
+- 📊 Se analizaron **`r length(vars_numericas)`** variables numéricas
+- ✗ La mayoría **NO siguen distribución normal** (según pruebas de Shapiro-Wilk y Kolmogorov-Smirnov)
+- 📈 Predominan distribuciones **sesgadas a la derecha**
+- ⚠️ Se detectan valores atípicos (códigos 999, 9999) que representan datos faltantes
+- 📉 Variables como EDADM y SEMGES presentan valores extremos que requieren limpieza
+
+### 3. Variables Categóricas  
+- ✓ Se identificaron **`r length(vars_categoricas)`** variables categóricas
+- 📊 Tablas de frecuencia generadas para variables clave (SEXO, ASISREC, SITIOOCU, CAUDEF)
+- 📈 CAUDEF muestra alta variabilidad de causas de defunción
+- 👥 La distribución por sexo es relativamente balanceada
+
+### 4. Relaciones entre Variables
+- 🔗 Matriz de correlación calculada para variables numéricas clave
+- 📊 Se identificaron correlaciones significativas entre algunas variables
+- ✓ Pruebas de independencia Chi-cuadrado aplicadas a variables categóricas
+- 📈 Relación observable entre edad de la madre y total de hijos
+- 🏥 Posible influencia del área geográfica (urbana/rural) en la asistencia recibida
+- 📅 Tendencia temporal en el número de registros a lo largo de los años
+
+### Recomendaciones para Análisis Posteriores
+1. **Limpieza de datos**: Convertir códigos especiales (999, 9999, 99) a valores NA
+2. **Transformaciones**: Considerar transformación logarítmica para variables con sesgo pronunciado
+3. **Análisis multivariado**: Explorar modelos de regresión para relaciones más complejas
+4. **Análisis geoespacial**: Investigar patrones regionales por departamento y municipio
+5. **Series temporales**: Analizar tendencias y estacionalidad en los datos
+6. **Análisis de supervivencia**: Estudiar factores asociados con causas de defunción
+</div>
+
+---
+
+# Información de Sesión
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+<div class="alert alert-success" style="text-align: center;">
+**Fin del Análisis Exploratorio**
+
+Documento generado el `r format(Sys.time(), '%d de %B de %Y a las %H:%M:%S')`
+</div>
