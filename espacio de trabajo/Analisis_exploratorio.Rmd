@@ -1663,6 +1663,106 @@ impacto %>%
 
 ------------------------------------------------------------------------
 
+---
+
+# Situación Problemática y Planteamiento del Problema
+
+## Contexto General
+
+Guatemala presenta uno de los índices más altos de mortalidad fetal en Centroamérica, con **41,623 defunciones fetales registradas entre 2009 y 2023** según datos del Instituto Nacional de Estadística (INE). Esta cifra representa un promedio de 2,973 casos anuales, evidenciando una problemática persistente que afecta principalmente a poblaciones vulnerables con limitado acceso a servicios de salud prenatal y obstétrica de calidad.
+
+La mortalidad fetal no es únicamente un indicador de salud reproductiva, sino un reflejo de las condiciones socioeconómicas, la calidad del sistema de salud y las inequidades estructurales que enfrentan las mujeres guatemaltecas durante el embarazo. Cada defunción fetal representa no solo la pérdida de una vida en gestación, sino también un impacto psicológico devastador para las familias, costos económicos significativos y la evidencia de fallas en la prevención y atención médica oportuna.
+
+## Análisis de la Situación Actual
+
+El análisis exploratorio de los datos del INE revela múltiples dimensiones críticas de esta problemática:
+
+**Inequidades Geográficas y de Acceso:** El análisis de contingencia entre área geográfica (AREAG) y asistencia recibida (ASISREC) muestra una relación estadísticamente significativa (χ² = 110.08, p < 0.001), confirmando que existe una diferencia sustancial en el acceso a servicios de salud entre zonas urbanas y rurales. Las mujeres en áreas rurales enfrentan mayores barreras para recibir atención prenatal adecuada, lo que se traduce en mayor riesgo de complicaciones y desenlaces adversos. Adicionalmente, el 30.5% de los registros (12,695 casos) carecen de información sobre el área geográfica, sugiriendo problemas en la recopilación de datos en zonas remotas donde precisamente se requiere mayor vigilancia epidemiológica.
+
+**Calidad y Completitud de la Información:** El dataset presenta deficiencias importantes en la captura de información. Variables críticas como grupo étnico materno (GRETNM) tienen 68.69% de datos faltantes, nacionalidad de la madre (NACIOM) presenta 52.88% de valores ausentes, y ocupación materna (OCUPAM) tiene 68.69% sin información. La presencia sistemática de códigos especiales (999, 9999) en variables como edad de la madre (EDADM) y semanas de gestación (SEMGES) indica problemas en el registro o reportes incompletos por parte de los establecimientos de salud. Esta falta de información completa dificulta la identificación precisa de factores de riesgo y limita la capacidad de diseñar intervenciones específicas y efectivas.
+
+**Factores Sociodemográficos Asociados:** El análisis de correlación revela relaciones significativas entre variables sociodemográficas. Existe una correlación fuerte (r = 0.846) entre el total de hijos tenidos (TOHITE) y el total de hijos vivos (TOHIVI), y una correlación moderada-fuerte (r = 0.743) entre total de hijos tenidos y total de hijos nacidos muertos (TOHINM). Estas correlaciones sugieren que la multiparidad está asociada con mayor riesgo de pérdidas fetales previas, lo cual es consistente con literatura médica que documenta mayor riesgo obstétrico en mujeres con múltiples embarazos. La edad materna también muestra correlación positiva con el número de hijos (r = 0.70), indicando que mujeres de mayor edad con múltiples embarazos constituyen un grupo de particular vulnerabilidad.
+
+**Tendencia Temporal:** El análisis de la serie temporal (2009-2023) muestra variabilidad interanual en el número de defunciones fetales, con una tendencia general de disminución desde aproximadamente 3,400 casos en 2009 hasta 2,325 casos en 2022. Sin embargo, esta reducción no ha sido constante ni uniforme, observándose incrementos en ciertos años que podrían estar relacionados con eventos específicos (desastres naturales, crisis sanitarias, cambios en políticas de salud). Es fundamental investigar estos patrones para entender qué factores han contribuido a las reducciones observadas y qué elementos podrían estar revirtiendo estos avances.
+
+**Diversidad de Causas de Muerte:** El análisis de la variable CAUDEF (causa de defunción) identifica 206 códigos diferentes según la Clasificación Internacional de Enfermedades (CIE-10), evidenciando una alta variabilidad etiológica. Esta diversidad sugiere que no existe una única causa dominante, sino múltiples factores médicos, obstétricos y sociales que contribuyen a la mortalidad fetal. Comprender cuáles son las causas más frecuentes y cómo se distribuyen geográfica y temporalmente es esencial para priorizar intervenciones preventivas y asignar recursos de manera eficiente.
+
+## Implicaciones para la Salud Pública
+
+La mortalidad fetal en Guatemala no es un problema aislado, sino que se inscribe en un contexto más amplio de desigualdades en salud materno-infantil. Los Objetivos de Desarrollo Sostenible (ODS), particularmente el ODS 3 que busca "garantizar una vida sana y promover el bienestar para todos en todas las edades", incluyen metas específicas para reducir la mortalidad neonatal y materna. La mortalidad fetal, aunque no siempre explícitamente incluida en estas métricas, es un indicador proxy crítico de la calidad de la atención prenatal y obstétrica.
+
+Las defunciones fetales tienen costos directos e indirectos significativos: gastos médicos, pérdida de productividad, impacto psicológico en las familias y carga sobre el sistema de salud. Más importante aún, muchas de estas muertes son prevenibles mediante intervenciones conocidas y costo-efectivas: control prenatal adecuado, detección temprana de complicaciones, acceso oportuno a servicios obstétricos de emergencia, educación materna sobre signos de alarma y promoción de prácticas saludables durante el embarazo.
+
+## Justificación de la Investigación
+
+Este estudio es fundamental por tres razones principales:
+
+**Generación de Evidencia Empírica:** Aunque existen estudios internacionales sobre mortalidad fetal, la evidencia específica para Guatemala es limitada. Este análisis proporciona una caracterización comprehensiva basada en datos oficiales del INE que abarca 14 años, permitiendo identificar patrones específicos del contexto guatemalteco que pueden no coincidir con hallazgos de otros países.
+
+**Base para Políticas Públicas:** Los resultados de este análisis pueden orientar la toma de decisiones en salud pública, permitiendo la asignación eficiente de recursos hacia las áreas geográficas, grupos poblacionales y períodos temporales de mayor riesgo. La identificación de factores modificables puede guiar el diseño de intervenciones preventivas específicas.
+
+**Reducción de Inequidades:** Al documentar las disparidades geográficas y sociodemográficas en la mortalidad fetal, este estudio contribuye a visibilizar las inequidades en salud que afectan desproporcionadamente a poblaciones rurales, indígenas y de bajos recursos. Esta evidencia es esencial para abogar por políticas que garanticen acceso equitativo a servicios de salud prenatal de calidad.
+
+---
+
+## Problema Científico
+
+Con base en el contexto descrito, se plantea el siguiente problema de investigación:
+
+**¿Cuáles son los principales factores sociodemográficos, geográficos y de acceso a servicios de salud asociados con la mortalidad fetal en Guatemala durante el período 2009-2023, y cómo se distribuyen espacial y temporalmente estos factores en el territorio nacional?**
+
+Este problema se descompone en las siguientes interrogantes específicas:
+
+- ¿Qué variables sociodemográficas (edad materna, escolaridad, estado civil, etnia, paridad) muestran asociación estadísticamente significativa con la mortalidad fetal?
+- ¿Existen diferencias significativas en las tasas de mortalidad fetal entre áreas urbanas y rurales, y cómo se relacionan estas diferencias con el acceso a asistencia médica?
+- ¿Qué departamentos y municipios presentan las tasas más elevadas de mortalidad fetal y qué características comunes comparten?
+- ¿Cómo ha evolucionado la mortalidad fetal a lo largo del período 2009-2023 y qué patrones temporales o estacionales son identificables?
+- ¿Es posible identificar perfiles o clusters de casos con características similares que permitan clasificar poblaciones de alto riesgo?
+
+---
+
+## Objetivos de la Investigación
+
+### Objetivo General
+
+Identificar, cuantificar y analizar los factores determinantes de la mortalidad fetal en Guatemala durante el período 2009-2023, mediante técnicas de análisis exploratorio de datos, estadística inferencial y clustering, con el propósito de comprender los patrones de distribución geográfica, temporal y sociodemográfica que permitan orientar el diseño de políticas públicas y programas de salud materno-infantil basados en evidencia.
+
+### Objetivos Específicos
+
+**1. Caracterizar la relación entre factores sociodemográficos y mortalidad fetal**
+
+Determinar y cuantificar la relación entre variables sociodemográficas maternas (edad en años, nivel de escolaridad, estado civil, grupo étnico, ocupación) y la incidencia de defunciones fetales, mediante análisis de correlación, pruebas de asociación estadística y regresión, para identificar cuáles factores son predictores significativos de mayor riesgo.
+
+**2. Evaluar disparidades geográficas en acceso a servicios de salud**
+
+Comparar las tasas de mortalidad fetal entre áreas urbanas y rurales (variable AREAG), analizando las diferencias en acceso a asistencia médica durante el parto (ASISREC), sitio de ocurrencia (SITIOOCU) y otras variables de atención, utilizando tablas de contingencia y pruebas de independencia Chi-cuadrado para cuantificar las inequidades en cobertura de servicios de salud prenatal y obstétrica.
+
+**3. Identificar zonas geográficas de alto riesgo**
+
+Realizar un análisis geoespacial descriptivo de las defunciones fetales por departamento (DEPREG, DEPREM) y municipio (MUPREG, MUPREM) para identificar las áreas geográficas con mayor incidencia absoluta y relativa, elaborando mapas de riesgo que permitan priorizar intervenciones y asignación de recursos en salud pública.
+
+**4. Analizar tendencias y patrones temporales**
+
+Examinar la evolución temporal de las defunciones fetales durante el período 2009-2023 (variables AÑOREG, MESREG), identificando tendencias de largo plazo, variaciones interanuales, posibles patrones estacionales y cambios en la distribución de causas principales de muerte fetal (CAUDEF), con el objetivo de detectar períodos críticos y evaluar el impacto de posibles intervenciones históricas.
+
+**5. Clasificar perfiles de riesgo mediante análisis de clustering**
+
+Aplicar técnicas de aprendizaje automático no supervisado (clustering jerárquico o k-means) para agrupar casos de mortalidad fetal con características similares en cuanto a edad materna, semanas de gestación, área geográfica, acceso a servicios y otras variables relevantes, permitiendo la identificación de poblaciones vulnerables específicas y la personalización de estrategias preventivas según perfil de riesgo.
+
+---
+
+## Alcances y Limitaciones
+
+**Alcances:**
+
+Este estudio cubre el período 2009-2023 con datos oficiales del INE, abarcando todo el territorio nacional guatemalteco. El análisis incluye 33 variables que permiten caracterizar aspectos sociodemográficos, geográficos, temporales y clínicos de las defunciones fetales. Los resultados serán generalizables a nivel nacional y podrán desagregarse por departamento y municipio.
+
+**Limitaciones:**
+
+La principal limitación es la alta proporción de datos faltantes en algunas variables críticas (>50% en GRETNM, NACIOM, OCUPAM), lo que puede limitar ciertos análisis multivariados. Adicionalmente, el dataset no incluye información sobre nivel socioeconómico, índice de desarrollo humano municipal, o distancia a servicios de salud, variables que podrían ser relevantes. Finalmente, el análisis es de naturaleza observacional y descriptiva, por lo que las asociaciones identificadas no implican necesariamente causalidad.
+
+---
+
 # Conclusiones
 
 ::: {.alert .alert-info}
