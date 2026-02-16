@@ -327,7 +327,16 @@ for(var in vars_numericas) {
   datos_var <- datos[[var]][!is.na(datos[[var]])]
   n <- length(datos_var)
   
-  if(n > 3 && n < 5000) {
+  if(n > 3) {  # Eliminamos el límite superior
+    # Para datasets grandes, tomar una muestra
+    if(n > 5000) {
+      set.seed(123)
+      datos_var <- sample(datos_var, 5000)
+      n_muestra <- 5000
+    } else {
+      n_muestra <- n
+    }
+    
     shapiro_test <- shapiro.test(datos_var)
     ks_test <- ks.test(datos_var, "pnorm", mean(datos_var), sd(datos_var))
     
@@ -336,7 +345,7 @@ for(var in vars_numericas) {
     
     pruebas_normalidad <- rbind(pruebas_normalidad, data.frame(
       Variable = var,
-      n = n,
+      n = n_muestra,
       Shapiro_W = shapiro_test$statistic,
       Shapiro_pvalor = shapiro_test$p.value,
       KS_estadistico = ks_test$statistic,
@@ -363,7 +372,7 @@ pruebas_normalidad %>%
     full_width = FALSE
   ) %>%
   row_spec(0, bold = TRUE, color = "white", background = "#9b59b6") %>%
-  add_header_above(c(" " = 2, "Shapiro-Wilk" = 2, "Kolmogorov-Smirnov" = 2, " " = 1)) %>%
+  add_header_above(c(" " = 2, "Shapiro-Wilk" = 2, "Kolmogorov-Smirnov" = 2, " " = 2)) %>%
   scroll_box(width = "100%", height = "400px")
 ```
 
