@@ -38,6 +38,8 @@ library(knitr)
 library(kableExtra)
 library(gridExtra)
 library(corrplot)
+library(cluster)
+library(factoextra)
 ```
 
 # Introducción
@@ -1336,7 +1338,11 @@ chisq_area_asis
 
 ### Interpretación
 
+El test de chi cuadrado arroja un valor p < 2.2e-16, lo que permite rechazar la hipótesis nula de independencia con un nivel de confianza del 95%. La tabla de proporciones muestra que en el área rural el porcentaje de partos atendidos por comadronas es significativamente mayor que en el área urbana, donde predomina la asistencia médica.
+
 ### Discusión
+
+Se acepta la hipótesis planteada. Existe una brecha estructural en el acceso a la salud pública en Guatemala. El área rural depende fuertemente de la medicina tradicional, posiblemente debido a la lejanía de los centros hospitalarios o demás factores socioculturales, mientras que en el área urbana se concentran los recursos profesionales.
 
 ## Pregunta 2
 
@@ -1359,7 +1365,11 @@ ggplot(datos %>% filter(EDADM < 60, TOHITE < 20),
 
 ### Interpretación
 
+Se observa una correlación positiva moderada r ≈ 0.46 con un valor p significativo. El gráfico de dispersión muestra una tendencia ascendente clara; a medida que aumenta la edad de la madre (EDADM), también lo hace el total de hijos (TOHITE). La línea de regresión roja confirma esta relación lineal entre ambas variables.
+
 ### Discusión
+
+Se acepta la hipótesis. Si bien es biológicamente lógico que a mayor edad exista una mayor probabilidad de tener más hijos, la dispersión de los datos también revela casos de madres jóvenes con un número elevado de hijos, lo cual sugiere que la edad no es el único factor determinante, aunque sí el más evidente de forma estadística.
 
 ## Pregunta 3
 
@@ -1382,7 +1392,11 @@ ggplot(registros_mes, aes(x = MESOCU, y = n)) +
 
 ### Interpretación
 
+El gráfico de barras muestra la distribución de frecuencias por mes. Si bien existe una distribución a lo largo de todo el año, se observa un ligero incremento en el meses de Enero. No se detectan meses con valores cercanos a cero, lo que indica un flujo constante de registros.
+
 ### Discusión
+
+La hipótesis se acepta parcialmente. Aunque no hay una variación extrema que indique que los nacimientos se detienen en ciertas épocas, el pico detectado sugiere una planificación o estacionalidad biológica que podría saturar los servicios de salud en el mes de Enero. Esto es clave para la asignación de recursos hospitalarios durante inicios de año.
 
 ## Pregunta 4
 
@@ -1405,7 +1419,11 @@ ggplot(datos %>% filter(ESCOLAM < 20, TOHITE < 20),
 
 ### Interpretación
 
+El análisis de correlación muestra un coeficiente negativo r ≈ -0.32 con significancia estadística. Esto indica una relación inversamente proporcional; a medida que el nivel educativo (ESCOLAM) aumenta, el total de hijos (TOHITE) tiende a disminuir. El gráfico de dispersión muestra una mayor densidad de familias numerosas en los niveles bajos de escolaridad.
+
 ### Discusión
+
+Se confirma la hipótesis. La educación actúa como un factor determinante en la planificación familiar. Las madres con acceso a educación superior tienden a postergar la maternidad o a tener menos hijos, lo que valida la teoría de que el desarrollo académico impacta directamente en las decisiones reproductivas y el nivel socioeconómico.
 
 ## Pregunta 5
 
@@ -1421,8 +1439,11 @@ chisq.test(tabla_sitio_asis)
 
 ### Interpretación
 
+El test de chi cuadrado arroja un valor p < 2.2e-16, indicando una dependencia total entre las variables. Los datos sugieren que los partos ocurridos en instituciones de salud públicas o privadas reciben asistencia médica profesional, mientras que los partos domiciliarios son atendidos mayoritariamente por personal no médico.
+
 ### Discusión
 
+Se acepta la hipótesis. El lugar del parto dicta el tipo de atención. Este hallazgo es crítico, ya que sugiere que el riesgo de complicaciones aumenta en los partos domiciliarios no solo por el entorno, sino por la falta de asistencia técnica calificada. Esto refuerza la necesidad de fortalecer los servicios de salud locales para incentivar el parto institucional.
 
 # Clustering
 
