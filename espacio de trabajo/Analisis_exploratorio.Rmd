@@ -631,6 +631,309 @@ if("CAUDEF" %in% names(datos)) {
 
 ---
 
+# Gráficos Exploratorios
+
+A continuación se presentan gráficos exploratorios que permiten visualizar el estado general de los datos, identificar patrones, valores atípicos y distribuciones antes de profundizar en relaciones entre variables.
+
+## Distribución de Variables Numéricas Clave {.tabset}
+
+### Boxplots Comparativos
+
+```{r boxplots-exploratorios, fig.width=12, fig.height=8}
+vars_boxplot <- c("EDADM", "SEMGES", "TOHITE", "TOHINM", "TOHIVI")
+vars_boxplot <- vars_boxplot[vars_boxplot %in% names(datos)]
+
+if(length(vars_boxplot) > 0) {
+  datos_long <- datos %>%
+    select(all_of(vars_boxplot)) %>%
+    pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valor") %>%
+    filter(!is.na(Valor), Valor < 900)
+  
+  ggplot(datos_long, aes(x = Variable, y = Valor, fill = Variable)) +
+    geom_boxplot(outlier.color = "#e74c3c", outlier.alpha = 0.3, outlier.size = 0.8) +
+    stat_summary(fun = mean, geom = "point", shape = 18, size = 3, color = "black") +
+    scale_fill_brewer(palette = "Set2") +
+    labs(
+      title = "Boxplots de Variables Numéricas Clave",
+      subtitle = "Se excluyen códigos especiales (≥900). El diamante negro indica la media.",
+      x = NULL, y = "Valor"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 10, color = "gray40"),
+      legend.position = "none"
+    )
+}
+```
+
+### Densidades Superpuestas
+
+```{r densidades-exploratorias, fig.width=12, fig.height=6}
+vars_densidad <- c("EDADM", "SEMGES")
+vars_densidad <- vars_densidad[vars_densidad %in% names(datos)]
+
+if(length(vars_densidad) > 0) {
+  plots_densidad <- list()
+  
+  for(v in vars_densidad) {
+    datos_filtrados <- datos %>%
+      filter(!is.na(.data[[v]]), .data[[v]] < 900)
+    
+    p <- ggplot(datos_filtrados, aes(x = .data[[v]])) +
+      geom_histogram(aes(y = after_stat(density)), bins = 40, 
+                     fill = "#3498db", color = "white", alpha = 0.6) +
+      geom_density(color = "#e74c3c", linewidth = 1.2) +
+      geom_vline(aes(xintercept = mean(.data[[v]], na.rm = TRUE)), 
+                 color = "#2c3e50", linetype = "dashed", linewidth = 0.8) +
+      geom_vline(aes(xintercept = median(.data[[v]], na.rm = TRUE)), 
+                 color = "#27ae60", linetype = "dotted", linewidth = 0.8) +
+      labs(
+        title = paste("Distribución de", v),
+        subtitle = "Línea punteada = mediana | Línea discontinua = media",
+        x = v, y = "Densidad"
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+            plot.subtitle = element_text(hjust = 0.5, size = 9, color = "gray40"))
+    
+    plots_densidad[[v]] <- p
+  }
+  
+  do.call(grid.arrange, c(plots_densidad, ncol = length(plots_densidad)))
+}
+```
+
+## Composición de Variables Categóricas {.tabset}
+
+### Distribución por Sexo
+
+```{r grafico-sexo, fig.width=8, fig.height=5}
+if("SEXO" %in% names(datos)) {
+  datos_sexo <- datos %>%
+    filter(!is.na(SEXO)) %>%
+    mutate(SEXO_label = case_when(
+      SEXO == 1 ~ "Masculino",
+      SEXO == 2 ~ "Femenino",
+      SEXO == 9 ~ "No especificado",
+      TRUE ~ as.character(SEXO)
+    )) %>%
+    count(SEXO_label) %>%
+    mutate(porcentaje = round(n / sum(n) * 100, 1))
+  
+  ggplot(datos_sexo, aes(x = reorder(SEXO_label, -n), y = n, fill = SEXO_label)) +
+    geom_col(width = 0.6, show.legend = FALSE) +
+    geom_text(aes(label = paste0(format(n, big.mark = ","), "\n(", porcentaje, "%)")),
+              vjust = -0.3, size = 4, fontface = "bold") +
+    scale_fill_manual(values = c("Masculino" = "#3498db", "Femenino" = "#e91e63", 
+                                 "No especificado" = "#95a5a6")) +
+    labs(title = "Distribución por Sexo", x = NULL, y = "Frecuencia") +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.15)))
+}
+```
+
+### Área Geográfica
+
+```{r grafico-area, fig.width=8, fig.height=5}
+if("AREAG" %in% names(datos)) {
+  datos_area <- datos %>%
+    filter(!is.na(AREAG)) %>%
+    mutate(AREAG_label = case_when(
+      AREAG == 1 ~ "Urbana",
+      AREAG == 2 ~ "Rural",
+      TRUE ~ as.character(AREAG)
+    )) %>%
+    count(AREAG_label) %>%
+    mutate(porcentaje = round(n / sum(n) * 100, 1))
+  
+  ggplot(datos_area, aes(x = "", y = n, fill = AREAG_label)) +
+    geom_col(width = 1) +
+    coord_polar(theta = "y") +
+    geom_text(aes(label = paste0(AREAG_label, "\n", porcentaje, "%")),
+              position = position_stack(vjust = 0.5), size = 5, fontface = "bold") +
+    scale_fill_manual(values = c("Urbana" = "#2ecc71", "Rural" = "#f39c12")) +
+    labs(title = "Distribución por Área Geográfica", fill = "Área") +
+    theme_void(base_size = 13) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+}
+```
+
+### Asistencia Recibida
+
+```{r grafico-asistencia, fig.width=8, fig.height=5}
+if("ASISREC" %in% names(datos)) {
+  datos_asis <- datos %>%
+    filter(!is.na(ASISREC)) %>%
+    mutate(ASISREC_label = case_when(
+      ASISREC == 1 ~ "Sí recibió",
+      ASISREC == 2 ~ "No recibió",
+      TRUE ~ as.character(ASISREC)
+    )) %>%
+    count(ASISREC_label) %>%
+    mutate(porcentaje = round(n / sum(n) * 100, 1))
+  
+  ggplot(datos_asis, aes(x = reorder(ASISREC_label, -n), y = n, fill = ASISREC_label)) +
+    geom_col(width = 0.5, show.legend = FALSE) +
+    geom_text(aes(label = paste0(format(n, big.mark = ","), "\n(", porcentaje, "%)")),
+              vjust = -0.3, size = 4, fontface = "bold") +
+    scale_fill_manual(values = c("Sí recibió" = "#27ae60", "No recibió" = "#c0392b")) +
+    labs(title = "Asistencia Recibida durante el Parto", x = NULL, y = "Frecuencia") +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.15)))
+}
+```
+
+## Panorama Temporal {.tabset}
+
+### Registros por Año
+
+```{r registros-anio, fig.width=12, fig.height=6}
+if("AÑOREG" %in% names(datos)) {
+  registros_anio <- datos %>%
+    filter(!is.na(AÑOREG)) %>%
+    count(AÑOREG)
+  
+  ggplot(registros_anio, aes(x = AÑOREG, y = n)) +
+    geom_line(color = "#2c3e50", linewidth = 1) +
+    geom_point(color = "#e74c3c", size = 3) +
+    geom_area(alpha = 0.15, fill = "#3498db") +
+    geom_text(aes(label = format(n, big.mark = ",")), vjust = -1, size = 3.2) +
+    labs(
+      title = "Evolución del Número de Registros por Año",
+      x = "Año de Registro", y = "Cantidad de Registros"
+    ) +
+    scale_x_continuous(breaks = seq(min(registros_anio$AÑOREG), max(registros_anio$AÑOREG), 1)) +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.12)))
+}
+```
+
+### Distribución Mensual
+
+```{r registros-mes, fig.width=10, fig.height=6}
+if("MESOCU" %in% names(datos)) {
+  meses_nombres <- c("Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                     "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
+  
+  registros_mes <- datos %>%
+    filter(!is.na(MESOCU), MESOCU >= 1, MESOCU <= 12) %>%
+    count(MESOCU) %>%
+    mutate(Mes = factor(meses_nombres[MESOCU], levels = meses_nombres))
+  
+  ggplot(registros_mes, aes(x = Mes, y = n, fill = n)) +
+    geom_col(show.legend = FALSE) +
+    scale_fill_gradient(low = "#85c1e9", high = "#1a5276") +
+    geom_text(aes(label = format(n, big.mark = ",")), vjust = -0.3, size = 3.5) +
+    labs(
+      title = "Distribución de Ocurrencias por Mes",
+      x = "Mes de Ocurrencia", y = "Frecuencia"
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+}
+```
+
+## Detección de Valores Atípicos y Datos Faltantes
+
+```{r valores-atipicos, fig.width=12, fig.height=7}
+vars_revision <- c("EDADM", "SEMGES", "TOHITE", "TOHINM", "TOHIVI", "ESCOLAM")
+vars_revision <- vars_revision[vars_revision %in% names(datos)]
+
+if(length(vars_revision) > 0) {
+  resumen_atipicos <- data.frame(
+    Variable = character(),
+    N_total = integer(),
+    N_NA = integer(),
+    Porc_NA = numeric(),
+    N_codigo_999 = integer(),
+    Porc_999 = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for(v in vars_revision) {
+    vals <- datos[[v]]
+    n_total <- length(vals)
+    n_na <- sum(is.na(vals))
+    n_999 <- sum(vals >= 99 & !is.na(vals))
+    
+    resumen_atipicos <- rbind(resumen_atipicos, data.frame(
+      Variable = v,
+      N_total = n_total,
+      N_NA = n_na,
+      Porc_NA = round(n_na / n_total * 100, 2),
+      N_codigo_999 = n_999,
+      Porc_999 = round(n_999 / n_total * 100, 2)
+    ))
+  }
+  
+  resumen_atipicos %>%
+    kable(
+      caption = "Detección de Valores Atípicos y Códigos Especiales",
+      col.names = c("Variable", "N Total", "N Faltantes (NA)", "% NA", 
+                     "N Códigos ≥99", "% Códigos ≥99"),
+      align = c('l', rep('r', 5))
+    ) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = FALSE
+    ) %>%
+    row_spec(0, bold = TRUE, color = "white", background = "#8e44ad")
+}
+```
+
+```{r heatmap-faltantes, fig.width=12, fig.height=6}
+vars_heatmap <- names(datos)[sapply(datos, is.numeric)]
+
+porc_faltantes <- sapply(datos[vars_heatmap], function(x) {
+  na_real <- sum(is.na(x))
+  cod_especial <- sum(x %in% c(99, 999, 9999) & !is.na(x))
+  round((na_real + cod_especial) / length(x) * 100, 1)
+})
+
+df_faltantes <- data.frame(
+  Variable = names(porc_faltantes),
+  Porcentaje = as.numeric(porc_faltantes)
+) %>%
+  arrange(desc(Porcentaje))
+
+ggplot(df_faltantes, aes(x = reorder(Variable, Porcentaje), y = Porcentaje, fill = Porcentaje)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_gradient(low = "#27ae60", high = "#e74c3c", name = "% Datos\nProblema") +
+  geom_text(aes(label = paste0(Porcentaje, "%")), hjust = -0.1, size = 3.5) +
+  labs(
+    title = "Porcentaje de Datos Faltantes o con Códigos Especiales por Variable",
+    subtitle = "Incluye NA y códigos como 99, 999, 9999",
+    x = NULL, y = "Porcentaje (%)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 10, color = "gray40")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12)))
+```
+
+<div class="alert alert-warning">
+**Observaciones de los Gráficos Exploratorios:**
+
+- 📊 Los **boxplots** revelan la presencia de valores extremos que probablemente corresponden a códigos de datos faltantes (99, 999, 9999)
+- 📈 Las **distribuciones de densidad** muestran el sesgo y la forma real de las variables clave
+- 🗓️ La **tendencia temporal** permite identificar cambios en el volumen de registros a lo largo de los años
+- 📅 La **distribución mensual** muestra si existe estacionalidad en las ocurrencias
+- ⚠️ El gráfico de **datos faltantes** ayuda a priorizar qué variables necesitan limpieza antes de análisis posteriores
+</div>
+
+---
+
 # Relaciones entre Variables
 
 ## Análisis de Correlación
