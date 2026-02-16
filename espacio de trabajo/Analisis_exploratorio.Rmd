@@ -1308,6 +1308,146 @@ cat("4. Distribución relativamente equilibrada entre sexos\n")
 
 ---
 
+# Documentación de Operaciones de Limpieza de Datos
+
+A lo largo del análisis exploratorio se aplicaron diversas operaciones de limpieza y filtrado para garantizar la calidad y coherencia de los resultados. A continuación se documenta cada una de ellas de forma estructurada.
+
+## Resumen de Operaciones de Limpieza
+
+```{r tabla-limpieza}
+operaciones_limpieza <- data.frame(
+  No = 1:10,
+  Operacion = c(
+    "Eliminación de valores NA (na.omit / !is.na)",
+    "Exclusión de códigos especiales ≥ 900",
+    "Filtro de edad de la madre (EDADM < 100)",
+    "Filtro de semanas de gestación (SEMGES < 100)",
+    "Filtro de total hijos tenidos (TOHITE < 50)",
+    "Filtro de total hijos vivos (TOHIVI < 50)",
+    "Validación de meses (MESOCU entre 1 y 12)",
+    "Exclusión de sexo no especificado (SEXO ∈ {1, 2})",
+    "Acotamiento del rango temporal (2009-2023)",
+    "Identificación de códigos 99, 999, 9999 como datos faltantes"
+  ),
+  Justificacion = c(
+    "Los registros con valores faltantes (NA) fueron excluidos en cálculos estadísticos, gráficos y tablas de frecuencia para evitar distorsiones en medias, medianas, correlaciones y pruebas de normalidad.",
+    "Variables como EDADM, SEMGES, TOHITE, TOHINM y TOHIVI utilizan códigos numéricos altos (≥ 900) para representar información no disponible. Estos valores fueron excluidos en boxplots y gráficos de densidad para que las distribuciones reflejen solo datos reales.",
+    "Se excluyeron registros con EDADM ≥ 100 ya que estos valores corresponden a códigos de datos faltantes (99, 999) y no a edades reales. La edad máxima biológicamente plausible para una madre es menor a 60 años.",
+    "Se excluyeron registros con SEMGES ≥ 100 ya que representan códigos de datos faltantes, no semanas de gestación reales. El rango biológico válido es aproximadamente entre 20 y 42 semanas.",
+    "Se excluyeron registros con TOHITE ≥ 50 para eliminar códigos especiales de datos faltantes. Es biológicamente improbable que una persona tenga 50 o más hijos.",
+    "Se excluyeron registros con TOHIVI ≥ 50 bajo el mismo criterio de plausibilidad biológica y para eliminar códigos especiales.",
+    "Se filtraron solo meses válidos (1 a 12), descartando valores fuera de rango que podrían representar errores de digitación o códigos especiales.",
+    "En análisis de contingencia y boxplots comparativos se excluyó el código 9 (no especificado) de la variable SEXO para enfocarse en las categorías informativas (1=Masculino, 2=Femenino).",
+    "Se acotó el análisis de tendencia temporal al período 2009-2023, que corresponde al rango de años con datos completos y consistentes del dataset.",
+    "Los códigos numéricos 99, 999 y 9999 fueron identificados como representaciones de datos faltantes o no especificados en el sistema de registro. Se contabilizaron para medir la calidad de los datos."
+  ),
+  Variables_Afectadas = c(
+    "Todas las variables numéricas y categóricas",
+    "EDADM, SEMGES, TOHITE, TOHINM, TOHIVI",
+    "EDADM",
+    "SEMGES",
+    "TOHITE",
+    "TOHIVI",
+    "MESOCU",
+    "SEXO",
+    "AÑOREG",
+    "EDADM, SEMGES, TOHITE, TOHINM, TOHIVI, ESCOLAM"
+  ),
+  Seccion_Aplicada = c(
+    "Estadísticas descriptivas, pruebas de normalidad, correlaciones, tablas de frecuencia, gráficos",
+    "Boxplots comparativos, gráficos de densidad",
+    "Gráficos de dispersión (Edad vs Semanas, Edad vs Hijos), boxplots por grupo",
+    "Gráficos de dispersión (Edad vs Semanas, Semanas vs Hijos Vivos)",
+    "Gráfico de dispersión (Edad vs Total Hijos)",
+    "Gráfico de dispersión (Semanas vs Hijos Vivos)",
+    "Gráfico de distribución mensual de ocurrencias",
+    "Barras agrupadas (Sexo vs Asistencia), boxplots por grupo",
+    "Gráfico de tendencia temporal",
+    "Detección de valores atípicos, heatmap de datos faltantes"
+  ),
+  stringsAsFactors = FALSE
+)
+
+operaciones_limpieza %>%
+  kable(
+    caption = "Tabla: Documentación Completa de Operaciones de Limpieza de Datos",
+    col.names = c("#", "Operación", "Justificación", "Variables Afectadas", "Sección Aplicada"),
+    align = c('c', 'l', 'l', 'l', 'l')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    font_size = 11
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#d35400") %>%
+  column_spec(2, width = "15em") %>%
+  column_spec(3, width = "25em") %>%
+  scroll_box(width = "100%", height = "600px")
+```
+
+## Impacto Cuantitativo de la Limpieza
+
+```{r impacto-limpieza}
+n_total <- nrow(datos)
+
+impacto <- data.frame(
+  Filtro = c(
+    "Registros originales",
+    "NA en EDADM",
+    "NA en SEMGES",
+    "EDADM ≥ 100 (códigos especiales)",
+    "SEMGES ≥ 100 (códigos especiales)",
+    "TOHITE ≥ 50 (códigos especiales)",
+    "TOHIVI ≥ 50 (códigos especiales)",
+    "SEXO = 9 (no especificado)",
+    "MESOCU fuera de rango (1-12)",
+    "Códigos 99/999/9999 en cualquier variable numérica"
+  ),
+  Registros_Afectados = c(
+    n_total,
+    sum(is.na(datos$EDADM)),
+    sum(is.na(datos$SEMGES)),
+    if("EDADM" %in% names(datos)) sum(datos$EDADM >= 100, na.rm = TRUE) else 0,
+    if("SEMGES" %in% names(datos)) sum(datos$SEMGES >= 100, na.rm = TRUE) else 0,
+    if("TOHITE" %in% names(datos)) sum(datos$TOHITE >= 50, na.rm = TRUE) else 0,
+    if("TOHIVI" %in% names(datos)) sum(datos$TOHIVI >= 50, na.rm = TRUE) else 0,
+    if("SEXO" %in% names(datos)) sum(datos$SEXO == 9, na.rm = TRUE) else 0,
+    if("MESOCU" %in% names(datos)) sum(datos$MESOCU < 1 | datos$MESOCU > 12, na.rm = TRUE) else 0,
+    sum(sapply(datos[sapply(datos, is.numeric)], function(x) sum(x %in% c(99, 999, 9999), na.rm = TRUE)))
+  ),
+  stringsAsFactors = FALSE
+)
+
+impacto$Porcentaje <- round(impacto$Registros_Afectados / n_total * 100, 2)
+impacto$Porcentaje[1] <- 100.00
+
+impacto %>%
+  mutate(Registros_Afectados = format(Registros_Afectados, big.mark = ",")) %>%
+  kable(
+    caption = "Tabla: Impacto Cuantitativo de cada Operación de Limpieza",
+    col.names = c("Filtro / Condición", "Registros Afectados", "% del Total"),
+    align = c('l', 'r', 'r')
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#d35400") %>%
+  row_spec(1, bold = TRUE, background = "#f0f0f0")
+```
+
+<div class="alert alert-warning">
+**Notas Importantes sobre la Limpieza:**
+
+- ⚠️ **Los datos originales no fueron modificados.** Todas las operaciones de limpieza se aplicaron como filtros temporales dentro de cada análisis específico, preservando la integridad del dataset original.
+- 🔢 **Códigos especiales:** Los valores 99, 999 y 9999 son convenciones del sistema de registro de defunciones para indicar "dato no especificado" o "dato no disponible".
+- 📊 **Criterio de exclusión:** Los umbrales utilizados (EDADM < 100, SEMGES < 100, TOHITE < 50, TOHIVI < 50) fueron seleccionados considerando los rangos biológicamente plausibles de cada variable.
+- 🔄 **Reproducibilidad:** Cada filtro está implementado directamente en el bloque de código R correspondiente, lo que garantiza la reproducibilidad completa del análisis.
+</div>
+
+---
+
 # Conclusiones
 
 <div class="alert alert-info">

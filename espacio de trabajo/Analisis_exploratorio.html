@@ -8316,13 +8316,515 @@ Relaciones</h2>
 <hr />
 </div>
 </div>
-<div id="conclusiones" class="section level1" number="7">
-<h1><span class="header-section-number">7</span> Conclusiones</h1>
-<div id="hallazgos-principales" class="section level2 alert alert-info" number="7.1">
-<h2><span class="header-section-number">7.1</span> Hallazgos
+<div id="documentación-de-operaciones-de-limpieza-de-datos" class="section level1" number="7">
+<h1><span class="header-section-number">7</span> Documentación de
+Operaciones de Limpieza de Datos</h1>
+<p>A lo largo del análisis exploratorio se aplicaron diversas
+operaciones de limpieza y filtrado para garantizar la calidad y
+coherencia de los resultados. A continuación se documenta cada una de
+ellas de forma estructurada.</p>
+<div id="resumen-de-operaciones-de-limpieza" class="section level2" number="7.1">
+<h2><span class="header-section-number">7.1</span> Resumen de
+Operaciones de Limpieza</h2>
+<div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" tabindex="-1"></a>operaciones_limpieza <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb75-2"><a href="#cb75-2" tabindex="-1"></a>  <span class="at">No =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,</span>
+<span id="cb75-3"><a href="#cb75-3" tabindex="-1"></a>  <span class="at">Operacion =</span> <span class="fu">c</span>(</span>
+<span id="cb75-4"><a href="#cb75-4" tabindex="-1"></a>    <span class="st">&quot;Eliminación de valores NA (na.omit / !is.na)&quot;</span>,</span>
+<span id="cb75-5"><a href="#cb75-5" tabindex="-1"></a>    <span class="st">&quot;Exclusión de códigos especiales ≥ 900&quot;</span>,</span>
+<span id="cb75-6"><a href="#cb75-6" tabindex="-1"></a>    <span class="st">&quot;Filtro de edad de la madre (EDADM &lt; 100)&quot;</span>,</span>
+<span id="cb75-7"><a href="#cb75-7" tabindex="-1"></a>    <span class="st">&quot;Filtro de semanas de gestación (SEMGES &lt; 100)&quot;</span>,</span>
+<span id="cb75-8"><a href="#cb75-8" tabindex="-1"></a>    <span class="st">&quot;Filtro de total hijos tenidos (TOHITE &lt; 50)&quot;</span>,</span>
+<span id="cb75-9"><a href="#cb75-9" tabindex="-1"></a>    <span class="st">&quot;Filtro de total hijos vivos (TOHIVI &lt; 50)&quot;</span>,</span>
+<span id="cb75-10"><a href="#cb75-10" tabindex="-1"></a>    <span class="st">&quot;Validación de meses (MESOCU entre 1 y 12)&quot;</span>,</span>
+<span id="cb75-11"><a href="#cb75-11" tabindex="-1"></a>    <span class="st">&quot;Exclusión de sexo no especificado (SEXO ∈ {1, 2})&quot;</span>,</span>
+<span id="cb75-12"><a href="#cb75-12" tabindex="-1"></a>    <span class="st">&quot;Acotamiento del rango temporal (2009-2023)&quot;</span>,</span>
+<span id="cb75-13"><a href="#cb75-13" tabindex="-1"></a>    <span class="st">&quot;Identificación de códigos 99, 999, 9999 como datos faltantes&quot;</span></span>
+<span id="cb75-14"><a href="#cb75-14" tabindex="-1"></a>  ),</span>
+<span id="cb75-15"><a href="#cb75-15" tabindex="-1"></a>  <span class="at">Justificacion =</span> <span class="fu">c</span>(</span>
+<span id="cb75-16"><a href="#cb75-16" tabindex="-1"></a>    <span class="st">&quot;Los registros con valores faltantes (NA) fueron excluidos en cálculos estadísticos, gráficos y tablas de frecuencia para evitar distorsiones en medias, medianas, correlaciones y pruebas de normalidad.&quot;</span>,</span>
+<span id="cb75-17"><a href="#cb75-17" tabindex="-1"></a>    <span class="st">&quot;Variables como EDADM, SEMGES, TOHITE, TOHINM y TOHIVI utilizan códigos numéricos altos (≥ 900) para representar información no disponible. Estos valores fueron excluidos en boxplots y gráficos de densidad para que las distribuciones reflejen solo datos reales.&quot;</span>,</span>
+<span id="cb75-18"><a href="#cb75-18" tabindex="-1"></a>    <span class="st">&quot;Se excluyeron registros con EDADM ≥ 100 ya que estos valores corresponden a códigos de datos faltantes (99, 999) y no a edades reales. La edad máxima biológicamente plausible para una madre es menor a 60 años.&quot;</span>,</span>
+<span id="cb75-19"><a href="#cb75-19" tabindex="-1"></a>    <span class="st">&quot;Se excluyeron registros con SEMGES ≥ 100 ya que representan códigos de datos faltantes, no semanas de gestación reales. El rango biológico válido es aproximadamente entre 20 y 42 semanas.&quot;</span>,</span>
+<span id="cb75-20"><a href="#cb75-20" tabindex="-1"></a>    <span class="st">&quot;Se excluyeron registros con TOHITE ≥ 50 para eliminar códigos especiales de datos faltantes. Es biológicamente improbable que una persona tenga 50 o más hijos.&quot;</span>,</span>
+<span id="cb75-21"><a href="#cb75-21" tabindex="-1"></a>    <span class="st">&quot;Se excluyeron registros con TOHIVI ≥ 50 bajo el mismo criterio de plausibilidad biológica y para eliminar códigos especiales.&quot;</span>,</span>
+<span id="cb75-22"><a href="#cb75-22" tabindex="-1"></a>    <span class="st">&quot;Se filtraron solo meses válidos (1 a 12), descartando valores fuera de rango que podrían representar errores de digitación o códigos especiales.&quot;</span>,</span>
+<span id="cb75-23"><a href="#cb75-23" tabindex="-1"></a>    <span class="st">&quot;En análisis de contingencia y boxplots comparativos se excluyó el código 9 (no especificado) de la variable SEXO para enfocarse en las categorías informativas (1=Masculino, 2=Femenino).&quot;</span>,</span>
+<span id="cb75-24"><a href="#cb75-24" tabindex="-1"></a>    <span class="st">&quot;Se acotó el análisis de tendencia temporal al período 2009-2023, que corresponde al rango de años con datos completos y consistentes del dataset.&quot;</span>,</span>
+<span id="cb75-25"><a href="#cb75-25" tabindex="-1"></a>    <span class="st">&quot;Los códigos numéricos 99, 999 y 9999 fueron identificados como representaciones de datos faltantes o no especificados en el sistema de registro. Se contabilizaron para medir la calidad de los datos.&quot;</span></span>
+<span id="cb75-26"><a href="#cb75-26" tabindex="-1"></a>  ),</span>
+<span id="cb75-27"><a href="#cb75-27" tabindex="-1"></a>  <span class="at">Variables_Afectadas =</span> <span class="fu">c</span>(</span>
+<span id="cb75-28"><a href="#cb75-28" tabindex="-1"></a>    <span class="st">&quot;Todas las variables numéricas y categóricas&quot;</span>,</span>
+<span id="cb75-29"><a href="#cb75-29" tabindex="-1"></a>    <span class="st">&quot;EDADM, SEMGES, TOHITE, TOHINM, TOHIVI&quot;</span>,</span>
+<span id="cb75-30"><a href="#cb75-30" tabindex="-1"></a>    <span class="st">&quot;EDADM&quot;</span>,</span>
+<span id="cb75-31"><a href="#cb75-31" tabindex="-1"></a>    <span class="st">&quot;SEMGES&quot;</span>,</span>
+<span id="cb75-32"><a href="#cb75-32" tabindex="-1"></a>    <span class="st">&quot;TOHITE&quot;</span>,</span>
+<span id="cb75-33"><a href="#cb75-33" tabindex="-1"></a>    <span class="st">&quot;TOHIVI&quot;</span>,</span>
+<span id="cb75-34"><a href="#cb75-34" tabindex="-1"></a>    <span class="st">&quot;MESOCU&quot;</span>,</span>
+<span id="cb75-35"><a href="#cb75-35" tabindex="-1"></a>    <span class="st">&quot;SEXO&quot;</span>,</span>
+<span id="cb75-36"><a href="#cb75-36" tabindex="-1"></a>    <span class="st">&quot;AÑOREG&quot;</span>,</span>
+<span id="cb75-37"><a href="#cb75-37" tabindex="-1"></a>    <span class="st">&quot;EDADM, SEMGES, TOHITE, TOHINM, TOHIVI, ESCOLAM&quot;</span></span>
+<span id="cb75-38"><a href="#cb75-38" tabindex="-1"></a>  ),</span>
+<span id="cb75-39"><a href="#cb75-39" tabindex="-1"></a>  <span class="at">Seccion_Aplicada =</span> <span class="fu">c</span>(</span>
+<span id="cb75-40"><a href="#cb75-40" tabindex="-1"></a>    <span class="st">&quot;Estadísticas descriptivas, pruebas de normalidad, correlaciones, tablas de frecuencia, gráficos&quot;</span>,</span>
+<span id="cb75-41"><a href="#cb75-41" tabindex="-1"></a>    <span class="st">&quot;Boxplots comparativos, gráficos de densidad&quot;</span>,</span>
+<span id="cb75-42"><a href="#cb75-42" tabindex="-1"></a>    <span class="st">&quot;Gráficos de dispersión (Edad vs Semanas, Edad vs Hijos), boxplots por grupo&quot;</span>,</span>
+<span id="cb75-43"><a href="#cb75-43" tabindex="-1"></a>    <span class="st">&quot;Gráficos de dispersión (Edad vs Semanas, Semanas vs Hijos Vivos)&quot;</span>,</span>
+<span id="cb75-44"><a href="#cb75-44" tabindex="-1"></a>    <span class="st">&quot;Gráfico de dispersión (Edad vs Total Hijos)&quot;</span>,</span>
+<span id="cb75-45"><a href="#cb75-45" tabindex="-1"></a>    <span class="st">&quot;Gráfico de dispersión (Semanas vs Hijos Vivos)&quot;</span>,</span>
+<span id="cb75-46"><a href="#cb75-46" tabindex="-1"></a>    <span class="st">&quot;Gráfico de distribución mensual de ocurrencias&quot;</span>,</span>
+<span id="cb75-47"><a href="#cb75-47" tabindex="-1"></a>    <span class="st">&quot;Barras agrupadas (Sexo vs Asistencia), boxplots por grupo&quot;</span>,</span>
+<span id="cb75-48"><a href="#cb75-48" tabindex="-1"></a>    <span class="st">&quot;Gráfico de tendencia temporal&quot;</span>,</span>
+<span id="cb75-49"><a href="#cb75-49" tabindex="-1"></a>    <span class="st">&quot;Detección de valores atípicos, heatmap de datos faltantes&quot;</span></span>
+<span id="cb75-50"><a href="#cb75-50" tabindex="-1"></a>  ),</span>
+<span id="cb75-51"><a href="#cb75-51" tabindex="-1"></a>  <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb75-52"><a href="#cb75-52" tabindex="-1"></a>)</span>
+<span id="cb75-53"><a href="#cb75-53" tabindex="-1"></a></span>
+<span id="cb75-54"><a href="#cb75-54" tabindex="-1"></a>operaciones_limpieza <span class="sc">%&gt;%</span></span>
+<span id="cb75-55"><a href="#cb75-55" tabindex="-1"></a>  <span class="fu">kable</span>(</span>
+<span id="cb75-56"><a href="#cb75-56" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">&quot;Tabla: Documentación Completa de Operaciones de Limpieza de Datos&quot;</span>,</span>
+<span id="cb75-57"><a href="#cb75-57" tabindex="-1"></a>    <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;#&quot;</span>, <span class="st">&quot;Operación&quot;</span>, <span class="st">&quot;Justificación&quot;</span>, <span class="st">&quot;Variables Afectadas&quot;</span>, <span class="st">&quot;Sección Aplicada&quot;</span>),</span>
+<span id="cb75-58"><a href="#cb75-58" tabindex="-1"></a>    <span class="at">align =</span> <span class="fu">c</span>(<span class="st">&#39;c&#39;</span>, <span class="st">&#39;l&#39;</span>, <span class="st">&#39;l&#39;</span>, <span class="st">&#39;l&#39;</span>, <span class="st">&#39;l&#39;</span>)</span>
+<span id="cb75-59"><a href="#cb75-59" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb75-60"><a href="#cb75-60" tabindex="-1"></a>  <span class="fu">kable_styling</span>(</span>
+<span id="cb75-61"><a href="#cb75-61" tabindex="-1"></a>    <span class="at">bootstrap_options =</span> <span class="fu">c</span>(<span class="st">&quot;striped&quot;</span>, <span class="st">&quot;hover&quot;</span>, <span class="st">&quot;condensed&quot;</span>),</span>
+<span id="cb75-62"><a href="#cb75-62" tabindex="-1"></a>    <span class="at">full_width =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb75-63"><a href="#cb75-63" tabindex="-1"></a>    <span class="at">font_size =</span> <span class="dv">11</span></span>
+<span id="cb75-64"><a href="#cb75-64" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb75-65"><a href="#cb75-65" tabindex="-1"></a>  <span class="fu">row_spec</span>(<span class="dv">0</span>, <span class="at">bold =</span> <span class="cn">TRUE</span>, <span class="at">color =</span> <span class="st">&quot;white&quot;</span>, <span class="at">background =</span> <span class="st">&quot;#d35400&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb75-66"><a href="#cb75-66" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">2</span>, <span class="at">width =</span> <span class="st">&quot;15em&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb75-67"><a href="#cb75-67" tabindex="-1"></a>  <span class="fu">column_spec</span>(<span class="dv">3</span>, <span class="at">width =</span> <span class="st">&quot;25em&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb75-68"><a href="#cb75-68" tabindex="-1"></a>  <span class="fu">scroll_box</span>(<span class="at">width =</span> <span class="st">&quot;100%&quot;</span>, <span class="at">height =</span> <span class="st">&quot;600px&quot;</span>)</span></code></pre></div>
+<div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:600px; overflow-x: scroll; width:100%; ">
+<table class="table table-striped table-hover table-condensed" style="font-size: 11px; color: black; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+Tabla: Documentación Completa de Operaciones de Limpieza de Datos
+</caption>
+<thead>
+<tr>
+<th style="text-align:center;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;position: sticky; top:0; background-color: #FFFFFF;">
+#
+</th>
+<th style="text-align:left;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;position: sticky; top:0; background-color: #FFFFFF;">
+Operación
+</th>
+<th style="text-align:left;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;position: sticky; top:0; background-color: #FFFFFF;">
+Justificación
+</th>
+<th style="text-align:left;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;position: sticky; top:0; background-color: #FFFFFF;">
+Variables Afectadas
+</th>
+<th style="text-align:left;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;position: sticky; top:0; background-color: #FFFFFF;">
+Sección Aplicada
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center;">
+1
+</td>
+<td style="text-align:left;width: 15em; ">
+Eliminación de valores NA (na.omit / !is.na)
+</td>
+<td style="text-align:left;width: 25em; ">
+Los registros con valores faltantes (NA) fueron excluidos en cálculos
+estadísticos, gráficos y tablas de frecuencia para evitar distorsiones
+en medias, medianas, correlaciones y pruebas de normalidad.
+</td>
+<td style="text-align:left;">
+Todas las variables numéricas y categóricas
+</td>
+<td style="text-align:left;">
+Estadísticas descriptivas, pruebas de normalidad, correlaciones, tablas
+de frecuencia, gráficos
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+2
+</td>
+<td style="text-align:left;width: 15em; ">
+Exclusión de códigos especiales ≥ 900
+</td>
+<td style="text-align:left;width: 25em; ">
+Variables como EDADM, SEMGES, TOHITE, TOHINM y TOHIVI utilizan códigos
+numéricos altos (≥ 900) para representar información no disponible.
+Estos valores fueron excluidos en boxplots y gráficos de densidad para
+que las distribuciones reflejen solo datos reales.
+</td>
+<td style="text-align:left;">
+EDADM, SEMGES, TOHITE, TOHINM, TOHIVI
+</td>
+<td style="text-align:left;">
+Boxplots comparativos, gráficos de densidad
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+3
+</td>
+<td style="text-align:left;width: 15em; ">
+Filtro de edad de la madre (EDADM &lt; 100)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se excluyeron registros con EDADM ≥ 100 ya que estos valores
+corresponden a códigos de datos faltantes (99, 999) y no a edades
+reales. La edad máxima biológicamente plausible para una madre es menor
+a 60 años.
+</td>
+<td style="text-align:left;">
+EDADM
+</td>
+<td style="text-align:left;">
+Gráficos de dispersión (Edad vs Semanas, Edad vs Hijos), boxplots por
+grupo
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+4
+</td>
+<td style="text-align:left;width: 15em; ">
+Filtro de semanas de gestación (SEMGES &lt; 100)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se excluyeron registros con SEMGES ≥ 100 ya que representan códigos de
+datos faltantes, no semanas de gestación reales. El rango biológico
+válido es aproximadamente entre 20 y 42 semanas.
+</td>
+<td style="text-align:left;">
+SEMGES
+</td>
+<td style="text-align:left;">
+Gráficos de dispersión (Edad vs Semanas, Semanas vs Hijos Vivos)
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+5
+</td>
+<td style="text-align:left;width: 15em; ">
+Filtro de total hijos tenidos (TOHITE &lt; 50)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se excluyeron registros con TOHITE ≥ 50 para eliminar códigos especiales
+de datos faltantes. Es biológicamente improbable que una persona tenga
+50 o más hijos.
+</td>
+<td style="text-align:left;">
+TOHITE
+</td>
+<td style="text-align:left;">
+Gráfico de dispersión (Edad vs Total Hijos)
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+6
+</td>
+<td style="text-align:left;width: 15em; ">
+Filtro de total hijos vivos (TOHIVI &lt; 50)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se excluyeron registros con TOHIVI ≥ 50 bajo el mismo criterio de
+plausibilidad biológica y para eliminar códigos especiales.
+</td>
+<td style="text-align:left;">
+TOHIVI
+</td>
+<td style="text-align:left;">
+Gráfico de dispersión (Semanas vs Hijos Vivos)
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+7
+</td>
+<td style="text-align:left;width: 15em; ">
+Validación de meses (MESOCU entre 1 y 12)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se filtraron solo meses válidos (1 a 12), descartando valores fuera de
+rango que podrían representar errores de digitación o códigos
+especiales.
+</td>
+<td style="text-align:left;">
+MESOCU
+</td>
+<td style="text-align:left;">
+Gráfico de distribución mensual de ocurrencias
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+8
+</td>
+<td style="text-align:left;width: 15em; ">
+Exclusión de sexo no especificado (SEXO ∈ {1, 2})
+</td>
+<td style="text-align:left;width: 25em; ">
+En análisis de contingencia y boxplots comparativos se excluyó el código
+9 (no especificado) de la variable SEXO para enfocarse en las categorías
+informativas (1=Masculino, 2=Femenino).
+</td>
+<td style="text-align:left;">
+SEXO
+</td>
+<td style="text-align:left;">
+Barras agrupadas (Sexo vs Asistencia), boxplots por grupo
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+9
+</td>
+<td style="text-align:left;width: 15em; ">
+Acotamiento del rango temporal (2009-2023)
+</td>
+<td style="text-align:left;width: 25em; ">
+Se acotó el análisis de tendencia temporal al período 2009-2023, que
+corresponde al rango de años con datos completos y consistentes del
+dataset.
+</td>
+<td style="text-align:left;">
+AÑOREG
+</td>
+<td style="text-align:left;">
+Gráfico de tendencia temporal
+</td>
+</tr>
+<tr>
+<td style="text-align:center;">
+10
+</td>
+<td style="text-align:left;width: 15em; ">
+Identificación de códigos 99, 999, 9999 como datos faltantes
+</td>
+<td style="text-align:left;width: 25em; ">
+Los códigos numéricos 99, 999 y 9999 fueron identificados como
+representaciones de datos faltantes o no especificados en el sistema de
+registro. Se contabilizaron para medir la calidad de los datos.
+</td>
+<td style="text-align:left;">
+EDADM, SEMGES, TOHITE, TOHINM, TOHIVI, ESCOLAM
+</td>
+<td style="text-align:left;">
+Detección de valores atípicos, heatmap de datos faltantes
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="impacto-cuantitativo-de-la-limpieza" class="section level2" number="7.2">
+<h2><span class="header-section-number">7.2</span> Impacto Cuantitativo
+de la Limpieza</h2>
+<div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" tabindex="-1"></a>n_total <span class="ot">&lt;-</span> <span class="fu">nrow</span>(datos)</span>
+<span id="cb76-2"><a href="#cb76-2" tabindex="-1"></a></span>
+<span id="cb76-3"><a href="#cb76-3" tabindex="-1"></a>impacto <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb76-4"><a href="#cb76-4" tabindex="-1"></a>  <span class="at">Filtro =</span> <span class="fu">c</span>(</span>
+<span id="cb76-5"><a href="#cb76-5" tabindex="-1"></a>    <span class="st">&quot;Registros originales&quot;</span>,</span>
+<span id="cb76-6"><a href="#cb76-6" tabindex="-1"></a>    <span class="st">&quot;NA en EDADM&quot;</span>,</span>
+<span id="cb76-7"><a href="#cb76-7" tabindex="-1"></a>    <span class="st">&quot;NA en SEMGES&quot;</span>,</span>
+<span id="cb76-8"><a href="#cb76-8" tabindex="-1"></a>    <span class="st">&quot;EDADM ≥ 100 (códigos especiales)&quot;</span>,</span>
+<span id="cb76-9"><a href="#cb76-9" tabindex="-1"></a>    <span class="st">&quot;SEMGES ≥ 100 (códigos especiales)&quot;</span>,</span>
+<span id="cb76-10"><a href="#cb76-10" tabindex="-1"></a>    <span class="st">&quot;TOHITE ≥ 50 (códigos especiales)&quot;</span>,</span>
+<span id="cb76-11"><a href="#cb76-11" tabindex="-1"></a>    <span class="st">&quot;TOHIVI ≥ 50 (códigos especiales)&quot;</span>,</span>
+<span id="cb76-12"><a href="#cb76-12" tabindex="-1"></a>    <span class="st">&quot;SEXO = 9 (no especificado)&quot;</span>,</span>
+<span id="cb76-13"><a href="#cb76-13" tabindex="-1"></a>    <span class="st">&quot;MESOCU fuera de rango (1-12)&quot;</span>,</span>
+<span id="cb76-14"><a href="#cb76-14" tabindex="-1"></a>    <span class="st">&quot;Códigos 99/999/9999 en cualquier variable numérica&quot;</span></span>
+<span id="cb76-15"><a href="#cb76-15" tabindex="-1"></a>  ),</span>
+<span id="cb76-16"><a href="#cb76-16" tabindex="-1"></a>  <span class="at">Registros_Afectados =</span> <span class="fu">c</span>(</span>
+<span id="cb76-17"><a href="#cb76-17" tabindex="-1"></a>    n_total,</span>
+<span id="cb76-18"><a href="#cb76-18" tabindex="-1"></a>    <span class="fu">sum</span>(<span class="fu">is.na</span>(datos<span class="sc">$</span>EDADM)),</span>
+<span id="cb76-19"><a href="#cb76-19" tabindex="-1"></a>    <span class="fu">sum</span>(<span class="fu">is.na</span>(datos<span class="sc">$</span>SEMGES)),</span>
+<span id="cb76-20"><a href="#cb76-20" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;EDADM&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>EDADM <span class="sc">&gt;=</span> <span class="dv">100</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-21"><a href="#cb76-21" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;SEMGES&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>SEMGES <span class="sc">&gt;=</span> <span class="dv">100</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-22"><a href="#cb76-22" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;TOHITE&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>TOHITE <span class="sc">&gt;=</span> <span class="dv">50</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-23"><a href="#cb76-23" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;TOHIVI&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>TOHIVI <span class="sc">&gt;=</span> <span class="dv">50</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-24"><a href="#cb76-24" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;SEXO&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>SEXO <span class="sc">==</span> <span class="dv">9</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-25"><a href="#cb76-25" tabindex="-1"></a>    <span class="cf">if</span>(<span class="st">&quot;MESOCU&quot;</span> <span class="sc">%in%</span> <span class="fu">names</span>(datos)) <span class="fu">sum</span>(datos<span class="sc">$</span>MESOCU <span class="sc">&lt;</span> <span class="dv">1</span> <span class="sc">|</span> datos<span class="sc">$</span>MESOCU <span class="sc">&gt;</span> <span class="dv">12</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="cf">else</span> <span class="dv">0</span>,</span>
+<span id="cb76-26"><a href="#cb76-26" tabindex="-1"></a>    <span class="fu">sum</span>(<span class="fu">sapply</span>(datos[<span class="fu">sapply</span>(datos, is.numeric)], <span class="cf">function</span>(x) <span class="fu">sum</span>(x <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">99</span>, <span class="dv">999</span>, <span class="dv">9999</span>), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb76-27"><a href="#cb76-27" tabindex="-1"></a>  ),</span>
+<span id="cb76-28"><a href="#cb76-28" tabindex="-1"></a>  <span class="at">stringsAsFactors =</span> <span class="cn">FALSE</span></span>
+<span id="cb76-29"><a href="#cb76-29" tabindex="-1"></a>)</span>
+<span id="cb76-30"><a href="#cb76-30" tabindex="-1"></a></span>
+<span id="cb76-31"><a href="#cb76-31" tabindex="-1"></a>impacto<span class="sc">$</span>Porcentaje <span class="ot">&lt;-</span> <span class="fu">round</span>(impacto<span class="sc">$</span>Registros_Afectados <span class="sc">/</span> n_total <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>)</span>
+<span id="cb76-32"><a href="#cb76-32" tabindex="-1"></a>impacto<span class="sc">$</span>Porcentaje[<span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="fl">100.00</span></span>
+<span id="cb76-33"><a href="#cb76-33" tabindex="-1"></a></span>
+<span id="cb76-34"><a href="#cb76-34" tabindex="-1"></a>impacto <span class="sc">%&gt;%</span></span>
+<span id="cb76-35"><a href="#cb76-35" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Registros_Afectados =</span> <span class="fu">format</span>(Registros_Afectados, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb76-36"><a href="#cb76-36" tabindex="-1"></a>  <span class="fu">kable</span>(</span>
+<span id="cb76-37"><a href="#cb76-37" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">&quot;Tabla: Impacto Cuantitativo de cada Operación de Limpieza&quot;</span>,</span>
+<span id="cb76-38"><a href="#cb76-38" tabindex="-1"></a>    <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Filtro / Condición&quot;</span>, <span class="st">&quot;Registros Afectados&quot;</span>, <span class="st">&quot;% del Total&quot;</span>),</span>
+<span id="cb76-39"><a href="#cb76-39" tabindex="-1"></a>    <span class="at">align =</span> <span class="fu">c</span>(<span class="st">&#39;l&#39;</span>, <span class="st">&#39;r&#39;</span>, <span class="st">&#39;r&#39;</span>)</span>
+<span id="cb76-40"><a href="#cb76-40" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb76-41"><a href="#cb76-41" tabindex="-1"></a>  <span class="fu">kable_styling</span>(</span>
+<span id="cb76-42"><a href="#cb76-42" tabindex="-1"></a>    <span class="at">bootstrap_options =</span> <span class="fu">c</span>(<span class="st">&quot;striped&quot;</span>, <span class="st">&quot;hover&quot;</span>, <span class="st">&quot;condensed&quot;</span>),</span>
+<span id="cb76-43"><a href="#cb76-43" tabindex="-1"></a>    <span class="at">full_width =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb76-44"><a href="#cb76-44" tabindex="-1"></a>    <span class="at">position =</span> <span class="st">&quot;center&quot;</span></span>
+<span id="cb76-45"><a href="#cb76-45" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb76-46"><a href="#cb76-46" tabindex="-1"></a>  <span class="fu">row_spec</span>(<span class="dv">0</span>, <span class="at">bold =</span> <span class="cn">TRUE</span>, <span class="at">color =</span> <span class="st">&quot;white&quot;</span>, <span class="at">background =</span> <span class="st">&quot;#d35400&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb76-47"><a href="#cb76-47" tabindex="-1"></a>  <span class="fu">row_spec</span>(<span class="dv">1</span>, <span class="at">bold =</span> <span class="cn">TRUE</span>, <span class="at">background =</span> <span class="st">&quot;#f0f0f0&quot;</span>)</span></code></pre></div>
+<table class="table table-striped table-hover table-condensed" style="color: black; width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Tabla: Impacto Cuantitativo de cada Operación de Limpieza
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;">
+Filtro / Condición
+</th>
+<th style="text-align:right;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;">
+Registros Afectados
+</th>
+<th style="text-align:right;font-weight: bold;color: white !important;background-color: rgba(211, 84, 0, 255) !important;">
+% del Total
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;background-color: rgba(240, 240, 240, 255) !important;">
+Registros originales
+</td>
+<td style="text-align:right;font-weight: bold;background-color: rgba(240, 240, 240, 255) !important;">
+41,623
+</td>
+<td style="text-align:right;font-weight: bold;background-color: rgba(240, 240, 240, 255) !important;">
+100.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA en EDADM
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA en SEMGES
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EDADM ≥ 100 (códigos especiales)
+</td>
+<td style="text-align:right;">
+1,195
+</td>
+<td style="text-align:right;">
+2.87
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SEMGES ≥ 100 (códigos especiales)
+</td>
+<td style="text-align:right;">
+1,310
+</td>
+<td style="text-align:right;">
+3.15
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TOHITE ≥ 50 (códigos especiales)
+</td>
+<td style="text-align:right;">
+19,353
+</td>
+<td style="text-align:right;">
+46.50
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TOHIVI ≥ 50 (códigos especiales)
+</td>
+<td style="text-align:right;">
+16,343
+</td>
+<td style="text-align:right;">
+39.26
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SEXO = 9 (no especificado)
+</td>
+<td style="text-align:right;">
+191
+</td>
+<td style="text-align:right;">
+0.46
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MESOCU fuera de rango (1-12)
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Códigos 99/999/9999 en cualquier variable numérica
+</td>
+<td style="text-align:right;">
+75,016
+</td>
+<td style="text-align:right;">
+180.23
+</td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-warning">
+<p><strong>Notas Importantes sobre la Limpieza:</strong></p>
+<ul>
+<li>⚠️ <strong>Los datos originales no fueron modificados.</strong>
+Todas las operaciones de limpieza se aplicaron como filtros temporales
+dentro de cada análisis específico, preservando la integridad del
+dataset original.</li>
+<li>🔢 <strong>Códigos especiales:</strong> Los valores 99, 999 y 9999
+son convenciones del sistema de registro de defunciones para indicar
+“dato no especificado” o “dato no disponible”.</li>
+<li>📊 <strong>Criterio de exclusión:</strong> Los umbrales utilizados
+(EDADM &lt; 100, SEMGES &lt; 100, TOHITE &lt; 50, TOHIVI &lt; 50) fueron
+seleccionados considerando los rangos biológicamente plausibles de cada
+variable.</li>
+<li>🔄 <strong>Reproducibilidad:</strong> Cada filtro está implementado
+directamente en el bloque de código R correspondiente, lo que garantiza
+la reproducibilidad completa del análisis.</li>
+</ul>
+</div>
+<hr />
+</div>
+</div>
+<div id="conclusiones" class="section level1" number="8">
+<h1><span class="header-section-number">8</span> Conclusiones</h1>
+<div id="hallazgos-principales" class="section level2 alert alert-info" number="8.1">
+<h2><span class="header-section-number">8.1</span> Hallazgos
 Principales</h2>
-<div id="descripción-general-del-dataset" class="section level3" number="7.1.1">
-<h3><span class="header-section-number">7.1.1</span> 1. Descripción
+<div id="descripción-general-del-dataset" class="section level3" number="8.1.1">
+<h3><span class="header-section-number">8.1.1</span> 1. Descripción
 General del Dataset</h3>
 <ul>
 <li>✓ Dataset con <strong>41,623</strong> observaciones y
@@ -8334,8 +8836,8 @@ cualitativas (nominales)</li>
 datos</li>
 </ul>
 </div>
-<div id="variables-numéricas" class="section level3" number="7.1.2">
-<h3><span class="header-section-number">7.1.2</span> 2. Variables
+<div id="variables-numéricas" class="section level3" number="8.1.2">
+<h3><span class="header-section-number">8.1.2</span> 2. Variables
 Numéricas</h3>
 <ul>
 <li>📊 Se analizaron <strong>31</strong> variables numéricas</li>
@@ -8349,8 +8851,8 @@ datos faltantes</li>
 requieren limpieza</li>
 </ul>
 </div>
-<div id="variables-categóricas" class="section level3" number="7.1.3">
-<h3><span class="header-section-number">7.1.3</span> 3. Variables
+<div id="variables-categóricas" class="section level3" number="8.1.3">
+<h3><span class="header-section-number">8.1.3</span> 3. Variables
 Categóricas</h3>
 <ul>
 <li>✓ Se identificaron <strong>22</strong> variables categóricas</li>
@@ -8360,8 +8862,8 @@ ASISREC, SITIOOCU, CAUDEF)</li>
 <li>👥 La distribución por sexo es relativamente balanceada</li>
 </ul>
 </div>
-<div id="relaciones-entre-variables-1" class="section level3" number="7.1.4">
-<h3><span class="header-section-number">7.1.4</span> 4. Relaciones entre
+<div id="relaciones-entre-variables-1" class="section level3" number="8.1.4">
+<h3><span class="header-section-number">8.1.4</span> 4. Relaciones entre
 Variables</h3>
 <ul>
 <li>🔗 Matriz de correlación calculada para variables numéricas
@@ -8377,8 +8879,8 @@ asistencia recibida</li>
 años</li>
 </ul>
 </div>
-<div id="recomendaciones-para-análisis-posteriores" class="section level3" number="7.1.5">
-<h3><span class="header-section-number">7.1.5</span> Recomendaciones
+<div id="recomendaciones-para-análisis-posteriores" class="section level3" number="8.1.5">
+<h3><span class="header-section-number">8.1.5</span> Recomendaciones
 para Análisis Posteriores</h3>
 <ol style="list-style-type: decimal">
 <li><strong>Limpieza de datos</strong>: Convertir códigos especiales
@@ -8398,10 +8900,10 @@ asociados con causas de defunción</li>
 </div>
 <hr />
 </div>
-<div id="información-de-sesión" class="section level1" number="8">
-<h1><span class="header-section-number">8</span> Información de
+<div id="información-de-sesión" class="section level1" number="9">
+<h1><span class="header-section-number">9</span> Información de
 Sesión</h1>
-<div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+<div class="sourceCode" id="cb77"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
 <pre><code>## R version 4.5.2 (2025-10-31 ucrt)
 ## Platform: x86_64-w64-mingw32/x64
 ## Running under: Windows 11 x64 (build 26200)
@@ -8441,7 +8943,7 @@ Sesión</h1>
 <hr />
 <div class="alert alert-success" style="text-align: center;">
 <p><strong>Fin del Análisis Exploratorio</strong></p>
-<p>Documento generado el 15 de febrero de 2026 a las 22:10:10</p>
+<p>Documento generado el 15 de febrero de 2026 a las 22:19:17</p>
 </div>
 </div>
 
