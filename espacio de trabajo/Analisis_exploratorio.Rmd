@@ -1306,6 +1306,198 @@ cat("3. Tendencia temporal observable en el número de registros\n")
 cat("4. Distribución relativamente equilibrada entre sexos\n")
 ```
 
+
+# Preguntas de Investigación Basadas en Supuestos
+
+A continuación se plantean cinco hipótesis preliminares basadas en creencias intuitivas sobre el fenómeno estudiado. Cada una será validada o refutada mediante análisis estadístico y visualización.
+
+## Pregunta 1
+
+### Hipótesis
+
+Las madres que viven en área rural reciben menos asistencia durante el parto que las que viven en área urbana.
+
+### Analisis
+```{r}
+# Tabla de contingencia
+tabla_area_asis <- table(datos$AREAG, datos$ASISREC)
+
+# Proporciones por fila
+prop_area_asis <- prop.table(tabla_area_asis, 1) * 100
+
+kable(round(prop_area_asis,2),
+      caption = "Porcentaje de Asistencia por Área Geográfica")
+
+# Prueba Chi-cuadrado
+chisq_area_asis <- chisq.test(tabla_area_asis)
+chisq_area_asis
+
+```
+
+### Interpretación
+
+### Discusión
+
+## Pregunta 2
+
+### Hipótesis
+
+Las madres de mayor edad tienden a tener más hijos.
+
+### Analisis
+```{r}
+cor.test(datos$EDADM, datos$TOHITE, use = "complete.obs")
+
+ggplot(datos %>% filter(EDADM < 60, TOHITE < 20),
+       aes(x = EDADM, y = TOHITE)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "Edad vs Total de Hijos")
+
+```
+
+### Interpretación
+
+### Discusión
+
+## Pregunta 3
+
+### Hipótesis
+
+Existe estacionalidad en las ocurrencias (algunos meses concentran más casos).
+
+### Analisis
+```{r}
+registros_mes <- datos %>%
+  filter(MESOCU >=1 & MESOCU <=12) %>%
+  count(MESOCU)
+
+ggplot(registros_mes, aes(x = MESOCU, y = n)) +
+  geom_col(fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Distribución mensual de ocurrencias")
+
+```
+
+### Interpretación
+
+### Discusión
+
+## Pregunta 4
+
+### Hipótesis
+
+Las madres con menor nivel educativo tienen más hijos.
+
+### Analisis
+```{r}
+cor.test(datos$ESCOLAM, datos$TOHITE, use = "complete.obs")
+
+ggplot(datos %>% filter(ESCOLAM < 20, TOHITE < 20),
+       aes(x = ESCOLAM, y = TOHITE)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red") +
+  theme_minimal() +
+  labs(title = "Escolaridad vs Total de Hijos")
+
+```
+
+### Interpretación
+
+### Discusión
+
+## Pregunta 5
+
+### Hipótesis
+
+El sitio de ocurrencia influye en la asistencia recibida.
+
+### Analisis
+```{r}
+tabla_sitio_asis <- table(datos$SITIOOCU, datos$ASISREC)
+chisq.test(tabla_sitio_asis)
+```
+
+### Interpretación
+
+### Discusión
+
+
+# Clustering
+
+El objetivo del clustering es identificar grupos homogéneos de registros según características similares.
+
+## Selección de Variables
+
+Usaremos variables numéricas relevantes:
+
+EDADM (edad madre)
+
+SEMGES (semanas gestación)
+
+TOHITE (total hijos)
+
+ESCOLAM (escolaridad)
+
+## Preparacion de variables y generación de clusters
+
+```{r}
+library(cluster)
+
+datos_cluster <- datos %>%
+  select(EDADM, SEMGES, TOHITE, ESCOLAM) %>%
+  filter(
+    EDADM < 60,
+    SEMGES < 50,
+    TOHITE < 20,
+    ESCOLAM < 20
+  ) %>%
+  na.omit()
+
+# Estandarización
+datos_scaled <- scale(datos_cluster)
+
+wss <- numeric(10)
+
+for(i in 1:10){
+  wss[i] <- sum(kmeans(datos_scaled, centers=i, nstart=10)$withinss)
+}
+
+plot(1:10, wss, type="b",
+     xlab="Número de clusters",
+     ylab="Suma de cuadrados intra-grupo")
+
+set.seed(123)
+k3 <- kmeans(datos_scaled, centers=3, nstart=25)
+
+datos_cluster$cluster <- factor(k3$cluster)
+
+ggplot(datos_cluster, aes(x=EDADM, y=TOHITE, color=cluster)) +
+  geom_point(alpha=0.6) +
+  theme_minimal() +
+  labs(title="Clusters según Edad y Número de Hijos")
+
+aggregate(datos_cluster[,1:4],
+          by=list(Cluster=datos_cluster$cluster),
+          mean)
+
+```
+
+## Interpretación de clusters
+
+El método del codo indicó que el número óptimo de grupos es k = 3, ya que a partir de este punto la reducción en la suma de cuadrados intra-grupo se estabiliza, indicando rendimientos decrecientes al aumentar el número de clusters.
+
+El análisis de medias permitió identificar tres perfiles diferenciados:
+
+Cluster 1 (Perfil intermedio educado): Madres con edad promedio de 29 años, nivel educativo medio (≈9 años) y número moderado de hijos (≈3.8). Representa un grupo con características intermedias tanto en edad como en fecundidad.
+
+Cluster 2 (Perfil joven con baja escolaridad): Grupo más joven (≈26 años), con bajo nivel educativo (≈2 años) y menor número de hijos (≈2.7). Puede representar madres en etapa inicial reproductiva y en situación de vulnerabilidad educativa.
+
+Cluster 3 (Perfil de mayor edad y alta fecundidad): Madres de mayor edad (≈36 años), con el mayor número promedio de hijos (≈6.3) y el nivel educativo más bajo (≈1.5 años). Este grupo refleja un patrón de alta fecundidad asociado a baja escolaridad.
+
+Los resultados sugieren una relación estructural entre edad, escolaridad y número de hijos, donde niveles educativos más bajos se asocian con mayor fecundidad. El clustering permitió identificar perfiles poblacionales claramente diferenciados, lo cual puede ser relevante para el diseño de políticas públicas focalizadas.
+
 ---
 
 # Documentación de Operaciones de Limpieza de Datos
