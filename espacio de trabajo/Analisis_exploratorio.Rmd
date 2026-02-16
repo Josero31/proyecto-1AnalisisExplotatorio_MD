@@ -55,11 +55,11 @@ datos <- read.csv("datos_combinados.csv",
                   fileEncoding = "UTF-8")
 ```
 
-<div class="alert alert-success">
-**Dataset cargado exitosamente** ✓
-</div>
+::: {.alert .alert-success}
+**Dataset cargado exitosamente**
+:::
 
----
+------------------------------------------------------------------------
 
 # Descripción General del Conjunto de Datos
 
@@ -70,13 +70,13 @@ n_observaciones <- nrow(datos)
 n_variables <- ncol(datos)
 ```
 
-<div class="alert alert-info">
+::: {.alert .alert-info}
 **Resumen del Dataset:**
 
-- **Observaciones:** `r format(n_observaciones, big.mark = ",")` registros
-- **Variables:** `r n_variables` columnas
-- **Período:** 2009-2023
-</div>
+-   **Observaciones:** `r format(n_observaciones, big.mark = ",")` registros
+-   **Variables:** `r n_variables` columnas
+-   **Período:** 2009-2023
+:::
 
 ## Significado y Tipo de cada Variable
 
@@ -241,7 +241,7 @@ resumen_tipos %>%
   row_spec(0, bold = TRUE, color = "white", background = "#2ecc71")
 ```
 
----
+------------------------------------------------------------------------
 
 # Exploración de Variables Numéricas
 
@@ -298,16 +298,16 @@ resumen_numericas %>%
   scroll_box(width = "100%", height = "400px")
 ```
 
-<div class="alert alert-info">
+::: {.alert .alert-info}
 **Interpretación de Medidas:**
 
-- **Media**: Promedio aritmético de los datos
-- **Mediana**: Valor central que divide los datos en dos partes iguales
-- **Desv. Est.**: Medida de dispersión de los datos respecto a la media
-- **Q1 y Q3**: Primer y tercer cuartil (25% y 75% de los datos)
-- **Asimetría**: Indica si la distribución es simétrica (≈0), sesgada a derecha (>0) o izquierda (<0)
-- **Curtosis**: Indica qué tan puntiaguda es la distribución (Normal ≈ 3)
-</div>
+-   **Media**: Promedio aritmético de los datos
+-   **Mediana**: Valor central que divide los datos en dos partes iguales
+-   **Desv. Est.**: Medida de dispersión de los datos respecto a la media
+-   **Q1 y Q3**: Primer y tercer cuartil (25% y 75% de los datos)
+-   **Asimetría**: Indica si la distribución es simétrica (≈0), sesgada a derecha (\>0) o izquierda (\<0)
+-   **Curtosis**: Indica qué tan puntiaguda es la distribución (Normal ≈ 3)
+:::
 
 ## Pruebas de Normalidad
 
@@ -367,14 +367,14 @@ pruebas_normalidad %>%
   scroll_box(width = "100%", height = "400px")
 ```
 
-<div class="alert alert-warning">
+::: {.alert .alert-warning}
 **Interpretación:**
 
-- **Variables normales:** `r sum(pruebas_normalidad$Es_Normal == "✓ SÍ")` de `r nrow(pruebas_normalidad)`
-- **Variables NO normales:** `r sum(pruebas_normalidad$Es_Normal == "✗ NO")` de `r nrow(pruebas_normalidad)`
+-   **Variables normales:** `r sum(pruebas_normalidad$Es_Normal == "✓ SÍ")` de `r nrow(pruebas_normalidad)`
+-   **Variables NO normales:** `r sum(pruebas_normalidad$Es_Normal == "✗ NO")` de `r nrow(pruebas_normalidad)`
 
-Si **p-valor < 0.05**, rechazamos la hipótesis de normalidad. La mayoría de las variables **no siguen una distribución normal**, lo cual es común en datos de registros administrativos.
-</div>
+Si **p-valor \< 0.05**, rechazamos la hipótesis de normalidad. La mayoría de las variables **no siguen una distribución normal**, lo cual es común en datos de registros administrativos.
+:::
 
 ## Gráficos de Normalidad {.tabset}
 
@@ -431,17 +431,17 @@ par(mfrow = c(1, 1))
 ```{r tipo-distribucion}
 identificar_distribucion <- function(asimetria, curtosis) {
   if(abs(asimetria) < 0.5 && abs(curtosis - 3) < 0.5) {
-    return("📊 Aproximadamente Normal")
+    return("Aproximadamente Normal")
   } else if(asimetria > 1) {
-    return("📈 Sesgada a la derecha")
+    return("Sesgada a la derecha")
   } else if(asimetria < -1) {
-    return("📉 Sesgada a la izquierda")
+    return("Sesgada a la izquierda")
   } else if(curtosis > 4) {
-    return("🔺 Leptocúrtica")
+    return("Leptocúrtica")
   } else if(curtosis < 2) {
-    return("🔻 Platicúrtica")
+    return("Platicúrtica")
   } else {
-    return("〰️ Asimétrica")
+    return("Asimétrica")
   }
 }
 
@@ -470,7 +470,7 @@ resumen_numericas %>%
   scroll_box(width = "100%", height = "400px")
 ```
 
----
+------------------------------------------------------------------------
 
 # Exploración de Variables Categóricas
 
@@ -491,11 +491,11 @@ for(var in names(datos)) {
 }
 ```
 
-<div class="alert alert-success">
+::: {.alert .alert-success}
 **Total de variables categóricas identificadas:** `r length(vars_categoricas)`
 
 Variables: `r paste(vars_categoricas[1:min(10, length(vars_categoricas))], collapse = ", ")`, ...
-</div>
+:::
 
 ## Tablas de Frecuencia {.tabset}
 
@@ -631,7 +631,7 @@ if("CAUDEF" %in% names(datos)) {
 }
 ```
 
----
+------------------------------------------------------------------------
 
 # Gráficos Exploratorios
 
@@ -924,17 +924,17 @@ ggplot(df_faltantes, aes(x = reorder(Variable, Porcentaje), y = Porcentaje, fill
   scale_y_continuous(expand = expansion(mult = c(0, 0.12)))
 ```
 
-<div class="alert alert-warning">
+::: {.alert .alert-warning}
 **Observaciones de los Gráficos Exploratorios:**
 
-- 📊 Los **boxplots** revelan la presencia de valores extremos que probablemente corresponden a códigos de datos faltantes (99, 999, 9999)
-- 📈 Las **distribuciones de densidad** muestran el sesgo y la forma real de las variables clave
-- 🗓️ La **tendencia temporal** permite identificar cambios en el volumen de registros a lo largo de los años
-- 📅 La **distribución mensual** muestra si existe estacionalidad en las ocurrencias
-- ⚠️ El gráfico de **datos faltantes** ayuda a priorizar qué variables necesitan limpieza antes de análisis posteriores
-</div>
+-   Los **boxplots** revelan la presencia de valores extremos que probablemente corresponden a códigos de datos faltantes (99, 999, 9999)
+-   Las **distribuciones de densidad** muestran el sesgo y la forma real de las variables clave
+-   La **tendencia temporal** permite identificar cambios en el volumen de registros a lo largo de los años
+-   La **distribución mensual** muestra si existe estacionalidad en las ocurrencias
+-   El gráfico de **datos faltantes** ayuda a priorizar qué variables necesitan limpieza antes de análisis posteriores
+:::
 
----
+------------------------------------------------------------------------
 
 # Relaciones entre Variables
 
@@ -1090,6 +1090,7 @@ if("SEMGES" %in% names(datos) && "TOHIVI" %in% names(datos)) {
 ## Tablas de Contingencia
 
 ### SEXO vs ASISREC
+
 ```{r contingencia-sexo-asis}
 if("SEXO" %in% names(datos) && "ASISREC" %in% names(datos)) {
   # Crear tabla
@@ -1279,35 +1280,26 @@ if("AÑOREG" %in% names(datos)) {
 ## Resumen de Relaciones
 
 ```{r resumen-relaciones}
-cat("\n")
-cat("========================================\n")
-cat("RESUMEN DE RELACIONES ENTRE VARIABLES\n")
-cat("========================================\n\n")
-
 cat("**CORRELACIONES:**\n")
-cat("--------------\n")
 if(exists("correlaciones_significativas") && nrow(correlaciones_significativas) > 0) {
-  cat("✓ Se encontraron", nrow(correlaciones_significativas), 
+  cat("Se encontraron", nrow(correlaciones_significativas), 
       "correlaciones significativas (|r| > 0.3)\n")
-  cat("  - Correlación más fuerte: r =", 
+  cat(" - Correlación más fuerte: r = ", 
       round(max(abs(correlaciones_significativas$Correlacion)), 3), "\n\n")
 } else {
-  cat("✗ No se encontraron correlaciones fuertes entre variables numéricas\n\n")
+  cat("No se encontraron correlaciones fuertes entre variables numéricas\n\n")
 }
 
 cat("**ASOCIACIONES CATEGÓRICAS:**\n")
-cat("-------------------------\n")
-cat("✓ Se analizaron múltiples tablas de contingencia\n")
-cat("✓ Se aplicaron pruebas Chi-cuadrado para independencia\n\n")
+cat("- Se analizaron múltiples tablas de contingencia\n")
+cat("- Se aplicaron pruebas Chi-cuadrado para independencia\n\n")
 
 cat("**HALLAZGOS PRINCIPALES:**\n")
-cat("----------------------\n")
 cat("1. Relación entre edad de la madre y total de hijos tenidos\n")
 cat("2. Posible influencia del área geográfica en la asistencia recibida\n")
 cat("3. Tendencia temporal observable en el número de registros\n")
 cat("4. Distribución relativamente equilibrada entre sexos\n")
 ```
-
 
 # Preguntas de Investigación Basadas en Supuestos
 
@@ -1320,6 +1312,7 @@ A continuación se plantean cinco hipótesis preliminares basadas en creencias i
 Las madres que viven en área rural reciben menos asistencia durante el parto que las que viven en área urbana.
 
 ### Analisis
+
 ```{r}
 # Tabla de contingencia
 tabla_area_asis <- table(datos$AREAG, datos$ASISREC)
@@ -1338,7 +1331,7 @@ chisq_area_asis
 
 ### Interpretación
 
-El test de chi cuadrado arroja un valor p < 2.2e-16, lo que permite rechazar la hipótesis nula de independencia con un nivel de confianza del 95%. La tabla de proporciones muestra que en el área rural el porcentaje de partos atendidos por comadronas es significativamente mayor que en el área urbana, donde predomina la asistencia médica.
+El test de chi cuadrado arroja un valor p \< 2.2e-16, lo que permite rechazar la hipótesis nula de independencia con un nivel de confianza del 95%. La tabla de proporciones muestra que en el área rural el porcentaje de partos atendidos por comadronas es significativamente mayor que en el área urbana, donde predomina la asistencia médica.
 
 ### Discusión
 
@@ -1351,6 +1344,7 @@ Se acepta la hipótesis planteada. Existe una brecha estructural en el acceso a 
 Las madres de mayor edad tienden a tener más hijos.
 
 ### Analisis
+
 ```{r}
 cor.test(datos$EDADM, datos$TOHITE, use = "complete.obs")
 
@@ -1378,6 +1372,7 @@ Se acepta la hipótesis. Si bien es biológicamente lógico que a mayor edad exi
 Existe estacionalidad en las ocurrencias (algunos meses concentran más casos).
 
 ### Analisis
+
 ```{r}
 registros_mes <- datos %>%
   filter(MESOCU >=1 & MESOCU <=12) %>%
@@ -1405,6 +1400,7 @@ La hipótesis se acepta parcialmente. Aunque no hay una variación extrema que i
 Las madres con menor nivel educativo tienen más hijos.
 
 ### Analisis
+
 ```{r}
 cor.test(datos$ESCOLAM, datos$TOHITE, use = "complete.obs")
 
@@ -1432,6 +1428,7 @@ Se confirma la hipótesis. La educación actúa como un factor determinante en l
 El sitio de ocurrencia influye en la asistencia recibida.
 
 ### Analisis
+
 ```{r}
 tabla_sitio_asis <- table(datos$SITIOOCU, datos$ASISREC)
 chisq.test(tabla_sitio_asis)
@@ -1439,7 +1436,7 @@ chisq.test(tabla_sitio_asis)
 
 ### Interpretación
 
-El test de chi cuadrado arroja un valor p < 2.2e-16, indicando una dependencia total entre las variables. Los datos sugieren que los partos ocurridos en instituciones de salud públicas o privadas reciben asistencia médica profesional, mientras que los partos domiciliarios son atendidos mayoritariamente por personal no médico.
+El test de chi cuadrado arroja un valor p \< 2.2e-16, indicando una dependencia total entre las variables. Los datos sugieren que los partos ocurridos en instituciones de salud públicas o privadas reciben asistencia médica profesional, mientras que los partos domiciliarios son atendidos mayoritariamente por personal no médico.
 
 ### Discusión
 
@@ -1465,6 +1462,7 @@ ESCOLAM (escolaridad)
 
 ```{r}
 library(cluster)
+library(factoextra)
 
 datos_cluster <- datos %>%
   select(EDADM, SEMGES, TOHITE, ESCOLAM) %>%
@@ -1476,23 +1474,28 @@ datos_cluster <- datos %>%
   ) %>%
   na.omit()
 
-# Estandarización
 datos_scaled <- scale(datos_cluster)
 
 wss <- numeric(10)
-
 for(i in 1:10){
   wss[i] <- sum(kmeans(datos_scaled, centers=i, nstart=10)$withinss)
 }
-
 plot(1:10, wss, type="b",
      xlab="Número de clusters",
      ylab="Suma de cuadrados intra-grupo")
 
 set.seed(123)
 k3 <- kmeans(datos_scaled, centers=3, nstart=25)
-
 datos_cluster$cluster <- factor(k3$cluster)
+
+sil <- silhouette(k3$cluster, dist(datos_scaled))
+
+fviz_silhouette(sil) +
+  labs(title = "Gráfico de Silueta para k = 3") +
+  theme_minimal()
+
+avg_sil <- mean(sil[, 3])
+print(paste("El ancho promedio de la silueta es:", round(avg_sil, 2)))
 
 ggplot(datos_cluster, aes(x=EDADM, y=TOHITE, color=cluster)) +
   geom_point(alpha=0.6) +
@@ -1502,7 +1505,6 @@ ggplot(datos_cluster, aes(x=EDADM, y=TOHITE, color=cluster)) +
 aggregate(datos_cluster[,1:4],
           by=list(Cluster=datos_cluster$cluster),
           mean)
-
 ```
 
 ## Interpretación de clusters
@@ -1519,7 +1521,7 @@ Cluster 3 (Perfil de mayor edad y alta fecundidad): Madres de mayor edad (≈36 
 
 Los resultados sugieren una relación estructural entre edad, escolaridad y número de hijos, donde niveles educativos más bajos se asocian con mayor fecundidad. El clustering permitió identificar perfiles poblacionales claramente diferenciados, lo cual puede ser relevante para el diseño de políticas públicas focalizadas.
 
----
+------------------------------------------------------------------------
 
 # Documentación de Operaciones de Limpieza de Datos
 
@@ -1650,59 +1652,63 @@ impacto %>%
   row_spec(1, bold = TRUE, background = "#f0f0f0")
 ```
 
-<div class="alert alert-warning">
+::: {.alert .alert-warning}
 **Notas Importantes sobre la Limpieza:**
 
-- ⚠️ **Los datos originales no fueron modificados.** Todas las operaciones de limpieza se aplicaron como filtros temporales dentro de cada análisis específico, preservando la integridad del dataset original.
-- 🔢 **Códigos especiales:** Los valores 99, 999 y 9999 son convenciones del sistema de registro de defunciones para indicar "dato no especificado" o "dato no disponible".
-- 📊 **Criterio de exclusión:** Los umbrales utilizados (EDADM < 100, SEMGES < 100, TOHITE < 50, TOHIVI < 50) fueron seleccionados considerando los rangos biológicamente plausibles de cada variable.
-- 🔄 **Reproducibilidad:** Cada filtro está implementado directamente en el bloque de código R correspondiente, lo que garantiza la reproducibilidad completa del análisis.
-</div>
+-   **Los datos originales no fueron modificados.** Todas las operaciones de limpieza se aplicaron como filtros temporales dentro de cada análisis específico, preservando la integridad del dataset original.
+-   **Códigos especiales:** Los valores 99, 999 y 9999 son convenciones del sistema de registro de defunciones para indicar "dato no especificado" o "dato no disponible".
+-   **Criterio de exclusión:** Los umbrales utilizados (EDADM \< 100, SEMGES \< 100, TOHITE \< 50, TOHIVI \< 50) fueron seleccionados considerando los rangos biológicamente plausibles de cada variable.
+-   **Reproducibilidad:** Cada filtro está implementado directamente en el bloque de código R correspondiente, lo que garantiza la reproducibilidad completa del análisis.
+:::
 
----
+------------------------------------------------------------------------
 
 # Conclusiones
 
-<div class="alert alert-info">
+::: {.alert .alert-info}
 ## Hallazgos Principales
 
-### 1. Descripción General del Dataset
-- ✓ Dataset con **`r format(n_observaciones, big.mark = ",")`** observaciones y **`r n_variables`** variables
-- ✓ Período de análisis: **2009-2023**
-- ✓ Variables clasificadas en cuantitativas (discretas/continuas) y cualitativas (nominales)
-- ✓ Significado de cada variable documentado en el diccionario de datos
+### 1. Disparidad Geográfica y Acceso a la Salud
 
-### 2. Variables Numéricas
-- 📊 Se analizaron **`r length(vars_numericas)`** variables numéricas
-- ✗ La mayoría **NO siguen distribución normal** (según pruebas de Shapiro-Wilk y Kolmogorov-Smirnov)
-- 📈 Predominan distribuciones **sesgadas a la derecha**
-- ⚠️ Se detectan valores atípicos (códigos 999, 9999) que representan datos faltantes
-- 📉 Variables como EDADM y SEMGES presentan valores extremos que requieren limpieza
+El análisis evidenció una marcada brecha en la asistencia médica recibida, estrechamente ligada al entorno geográfico y al sitio de ocurrencia de los hechos.
 
-### 3. Variables Categóricas  
-- ✓ Se identificaron **`r length(vars_categoricas)`** variables categóricas
-- 📊 Tablas de frecuencia generadas para variables clave (SEXO, ASISREC, SITIOOCU, CAUDEF)
-- 📈 CAUDEF muestra alta variabilidad de causas de defunción
-- 👥 La distribución por sexo es relativamente balanceada
+Se concluye que las áreas rurales de Guatemala presentan una dependencia estructural de la asistencia no profesional, como las comadronas, lo que refleja una centralización de los servicios de salud especializados en zonas urbanas y pone de manifiesto la necesidad de fortalecer la infraestructura hospitalaria periférica para reducir los riesgos asociados a los partos fuera de instituciones médicas.
 
-### 4. Relaciones entre Variables
-- 🔗 Matriz de correlación calculada para variables numéricas clave
-- 📊 Se identificaron correlaciones significativas entre algunas variables
-- ✓ Pruebas de independencia Chi-cuadrado aplicadas a variables categóricas
-- 📈 Relación observable entre edad de la madre y total de hijos
-- 🏥 Posible influencia del área geográfica (urbana/rural) en la asistencia recibida
-- 📅 Tendencia temporal en el número de registros a lo largo de los años
+### 2. El Impacto del Nivel Educativo en la Fecundidad
+
+Se determinó que el nivel educativo de la madre es el predictor socioeconómico más influyente sobre el comportamiento de la fecundidad en la población estudiada.
+
+A través de las correlaciones negativas observadas entre la escolaridad y el total de hijos, se concluye que el acceso a la educación formal actúa como un factor determinante para la planificación familiar; a mayor preparación académica, se observa una tendencia clara hacia la reducción del tamaño de las familias y la postergación de la maternidad en los registros analizados.
+
+### 3. Dinámica Demográfica de la Edad Materna
+
+La investigación permitió validar la relación biológica y demográfica existente entre la edad de la madre y su descendencia total.
+
+Se concluye que existe una correlación positiva moderada que confirma que, a medida que aumenta la edad, se incrementa el número de hijos nacidos vivos; sin embargo, la presencia de valores atípicos en edades tempranas con paridad elevada sugiere condiciones de vulnerabilidad social que deben ser abordadas desde una perspectiva de políticas públicas de salud reproductiva.
+
+### 4. Estacionalidad y Gestión de Recursos Vitales
+
+Los hallazgos sobre la distribución temporal de los registros confirman la existencia de una estacionalidad en las estadísticas vitales del país, identificando meses específicos con mayor saturación de registros.
+
+Esta conclusión es fundamental para la gestión operativa del sistema de salud y del registro civil, ya que permite anticipar los periodos de mayor demanda y optimizar la asignación de personal y suministros médicos durante las épocas del año que históricamente concentran el mayor flujo de eventos.
+
+### 5. Validación de Perfiles mediante Clustering
+
+La aplicación de técnicas de agrupamiento permitió identificar tres perfiles poblacionales con características socio-biológicas claramente diferenciadas, lo que fue validado técnicamente mediante el método de la silueta.
+
+Se concluye que el clustering es una herramienta potente para segmentar la población en grupos como el de "Alta Vulnerabilidad" (baja escolaridad y alta fecundidad), permitiendo que los siguientes pasos de minería de datos se enfoquen en modelos predictivos específicos para cada segmento identificado.
 
 ### Recomendaciones para Análisis Posteriores
-1. **Limpieza de datos**: Convertir códigos especiales (999, 9999, 99) a valores NA
-2. **Transformaciones**: Considerar transformación logarítmica para variables con sesgo pronunciado
-3. **Análisis multivariado**: Explorar modelos de regresión para relaciones más complejas
-4. **Análisis geoespacial**: Investigar patrones regionales por departamento y municipio
-5. **Series temporales**: Analizar tendencias y estacionalidad en los datos
-6. **Análisis de supervivencia**: Estudiar factores asociados con causas de defunción
-</div>
 
----
+1.  **Limpieza de datos**: Convertir códigos especiales (999, 9999, 99) a valores NA
+2.  **Transformaciones**: Considerar transformación logarítmica para variables con sesgo pronunciado
+3.  **Análisis multivariado**: Explorar modelos de regresión para relaciones más complejas
+4.  **Análisis geoespacial**: Investigar patrones regionales por departamento y municipio
+5.  **Series temporales**: Analizar tendencias y estacionalidad en los datos
+6.  **Análisis de supervivencia**: Estudiar factores asociados con causas de defunción
+:::
+
+------------------------------------------------------------------------
 
 # Información de Sesión
 
@@ -1710,10 +1716,10 @@ impacto %>%
 sessionInfo()
 ```
 
----
+------------------------------------------------------------------------
 
-<div class="alert alert-success" style="text-align: center;">
+::: {.alert .alert-success style="text-align: center;"}
 **Fin del Análisis Exploratorio**
 
 Documento generado el `r format(Sys.time(), '%d de %B de %Y a las %H:%M:%S')`
-</div>
+:::
