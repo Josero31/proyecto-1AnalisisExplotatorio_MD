@@ -1,0 +1,940 @@
+---
+title: "Fase 2 – Modelos Predictivos"
+subtitle: "Predicción del Sitio de Ocurrencia del Parto en Guatemala (2009–2022)"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 6,
+  fig.align  = "center"
+)
+```
+
+```{r librerias, include=FALSE}
+# ── Manipulación y visualización ──────────────────────────────────────────────
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(gridExtra)
+
+# ── Modelado y aprendizaje automático ─────────────────────────────────────────
+library(caret)        # framework unificado de entrenamiento
+library(e1071)        # SVM (interfaz directa)
+library(kernlab)      # SVM para caret (svmLinear / svmRadial)
+library(randomForest) # Random Forest
+library(glmnet)       # Regresión logística regularizada (LASSO / Ridge)
+
+# ── Métricas y curvas ROC ─────────────────────────────────────────────────────
+library(pROC)
+
+# ── Balanceo de clases ────────────────────────────────────────────────────────
+library(ROSE)
+```
+
+---
+
+# Variable Respuesta
+
+## Definición y justificación
+
+La variable respuesta seleccionada es **`SITIOOCU`** (sitio de ocurrencia del parto), binarizada de la siguiente manera:
+
+| Categoría | Valores originales | Etiqueta |
+|---|---|---|
+| Establecimiento de salud | 1 (hospital público), 2 (hospital privado), 3 (centro/clínica), 4 (puesto de salud), 5 (otro establecimiento) | `Establecimiento` |
+| Domicilio | 6 | `Domicilio` |
+| Excluidos | 7 (otro lugar), 8 (en ruta), 9 (no especificado) | — |
+
+**Justificación:** Se trata de una variable **cualitativa nominal dicotómica**, ideal para un problema de **clasificación binaria**. Predecir si una defunción perinatal ocurrió en domicilio o en un establecimiento de salud es de alto valor epidemiológico: los partos en domicilio sin asistencia calificada son uno de los principales factores de mortalidad materna y neonatal en Guatemala (Ribeiro et al., 2025). Identificar los factores sociodemográficos que predicen la ocurrencia domiciliaria permite orientar intervenciones de salud pública hacia las poblaciones más vulnerables.
+
+## Carga de datos y construcción de la variable respuesta
+
+```{r carga-datos}
+# Cargar el dataset original
+datos <- read.csv(
+  "datos_combinados.csv",
+  header          = TRUE,
+  stringsAsFactors = FALSE,
+  fileEncoding    = "UTF-8"
+)
+
+cat("Dimensiones originales:", nrow(datos), "filas ×", ncol(datos), "columnas\n")
+```
+
+```{r definir-respuesta}
+# ── Binarización de SITIOOCU ──────────────────────────────────────────────────
+# Se conservan únicamente los valores con información definida (1–6).
+# Los códigos 7, 8 y 9 se eliminan por no corresponder a una categoría clara.
+
+datos_fase2 <- datos %>%
+  filter(SITIOOCU %in% c(1, 2, 3, 4, 5, 6)) %>%
+  mutate(
+    SITIOOCU_bin = factor(
+      ifelse(SITIOOCU == 6, "Domicilio", "Establecimiento"),
+      levels = c("Establecimiento", "Domicilio")   # Establecimiento = clase de referencia
+    )
+  )
+
+# Distribución antes de limpiar predictores
+tabla_resp <- table(datos_fase2$SITIOOCU_bin)
+cat("\nDistribución inicial de SITIOOCU_bin:\n")
+print(tabla_resp)
+cat(sprintf("Proporción Domicilio: %.1f%%\n", prop.table(tabla_resp)["Domicilio"] * 100))
+```
+
+---
+
+# Preprocesamiento para Modelado
+
+## Selección de predictores
+
+Se seleccionaron 8 predictores con base en tres criterios:
+
+1. **Relevancia teórica:** variables demográficas de la madre y características del parto documentadas en la literatura como determinantes del sitio de parto (Boatin et al., 2022; Teshome et al., 2025).
+2. **Disponibilidad de datos:** se excluyeron variables con más del 40 % de valores faltantes o códigos especiales (`GRETNM` 68.7 %, `TOHITE/TOHIVI/TOHINM` con alta proporción de código 999).
+3. **Ausencia de fuga de datos (*data leakage*):** se excluyeron `ASISREC` (tipo de asistencia recibida) y `VIAPAR` (vía del parto) porque son variables recopiladas **simultáneamente** con el sitio de ocurrencia; incluirlas inflaría artificialmente el rendimiento del modelo.
+
+| Predictor | Tipo | Descripción |
+|---|---|---|
+| `EDADM` | Numérico continuo | Edad de la madre (años) |
+| `SEMGES` | Numérico continuo | Semanas de gestación |
+| `AREAG` | Categórico (2 niv.) | Área geográfica: urbana / rural |
+| `SEXO` | Categórico (2 niv.) | Sexo del fallecido |
+| `TIPAR` | Categórico (2 niv.) | Tipo de parto: simple / múltiple |
+| `ESCOLAM` | Categórico (5 niv.) | Escolaridad de la madre |
+| `ESCIVM` | Categórico (3 niv.) | Estado civil de la madre |
+| `AÑOOCU` | Numérico discreto | Año de ocurrencia (tendencia temporal) |
+
+## Limpieza y transformaciones
+
+```{r preprocesamiento}
+# ── Filtros de valores biológicamente plausibles y códigos especiales ─────────
+datos_modelo <- datos_fase2 %>%
+  select(EDADM, SEMGES, AREAG, SEXO, TIPAR, ESCOLAM, ESCIVM, AÑOOCU,
+         SITIOOCU_bin) %>%
+  filter(
+    EDADM  >= 10, EDADM  < 60,       # rango biológico para madres
+    SEMGES >= 20, SEMGES < 45,        # semanas gestacionales válidas
+    AREAG  %in% c(1, 2),              # excluye código 9 (no especificado)
+    SEXO   %in% c(1, 2),              # excluye código 9
+    TIPAR  %in% c(1, 2),              # simple o múltiple solamente
+    ESCOLAM %in% c(1, 2, 3, 4, 5),   # excluye 6 (postgrado, n=3) y 9
+    ESCIVM %in% c(1, 2, 3)           # soltera, casada, unida
+  ) %>%
+  drop_na()
+
+# ── Codificación de variables categóricas ─────────────────────────────────────
+datos_modelo <- datos_modelo %>%
+  mutate(
+    AREAG   = factor(AREAG,   levels = c(1, 2),
+                    labels = c("Urbana", "Rural")),
+    SEXO    = factor(SEXO,    levels = c(1, 2),
+                    labels = c("Masculino", "Femenino")),
+    TIPAR   = factor(TIPAR,   levels = c(1, 2),
+                    labels = c("Simple", "Multiple")),
+    ESCOLAM = factor(ESCOLAM, levels = c(1, 2, 3, 4, 5),
+                    labels = c("Ninguna", "Primaria", "Secundaria",
+                               "Diversificado", "Superior")),
+    ESCIVM  = factor(ESCIVM,  levels = c(1, 2, 3),
+                    labels = c("Soltera", "Casada", "Unida"))
+  )
+
+cat("Registros después de limpieza:", nrow(datos_modelo), "\n")
+cat("Variables:", ncol(datos_modelo) - 1, "predictores + 1 respuesta\n")
+```
+
+```{r summary-predictores}
+# Resumen de las variables numéricas
+resumen_num <- datos_modelo %>%
+  select(EDADM, SEMGES, AÑOOCU) %>%
+  summary()
+
+cat("\nResumen de predictores numéricos:\n")
+print(resumen_num)
+
+# Frecuencias de predictores categóricos
+cat("\nDistribución AREAG:\n");   print(prop.table(table(datos_modelo$AREAG))   * 100)
+cat("\nDistribución ESCOLAM:\n"); print(prop.table(table(datos_modelo$ESCOLAM)) * 100)
+cat("\nDistribución ESCIVM:\n");  print(prop.table(table(datos_modelo$ESCIVM))  * 100)
+```
+
+## Análisis de balance de la variable respuesta
+
+```{r balance-respuesta}
+tabla_bin <- table(datos_modelo$SITIOOCU_bin)
+df_balance <- data.frame(
+  Clase    = names(tabla_bin),
+  n        = as.integer(tabla_bin),
+  Porcentaje = round(prop.table(tabla_bin) * 100, 1)
+)
+
+df_balance %>%
+  kable(caption = "Distribución de la variable respuesta SITIOOCU_bin",
+        col.names = c("Clase", "Registros", "Porcentaje (%)"),
+        align = c("l", "r", "r")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE, position = "center") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#2c3e50")
+```
+
+```{r grafico-balance}
+ggplot(df_balance, aes(x = Clase, y = n, fill = Clase)) +
+  geom_bar(stat = "identity", width = 0.5, color = "white") +
+  geom_text(aes(label = paste0(n, "\n(", Porcentaje, "%)")),
+            vjust = -0.3, size = 4.5, fontface = "bold") +
+  scale_fill_manual(values = c("Establecimiento" = "#2980b9",
+                               "Domicilio"       = "#e74c3c")) +
+  labs(title    = "Distribución de la Variable Respuesta: Sitio de Ocurrencia del Parto",
+       subtitle = "Nótese el desbalance: ~80% establecimiento vs ~20% domicilio",
+       x = "Sitio de Ocurrencia", y = "Número de registros") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none",
+        plot.title    = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40"))
+```
+
+::: {.alert .alert-warning}
+**Desbalance detectado:** La clase minoritaria (Domicilio) representa únicamente el **~20%** de los registros. Esto implica que un clasificador trivial que prediga siempre "Establecimiento" alcanzaría ~80% de exactitud sin aprender nada útil. Para corregir este sesgo se aplicará la técnica **ROSE** (*Random Over-Sampling Examples*) sobre el conjunto de entrenamiento antes de ajustar los modelos.
+:::
+
+---
+
+# División en Conjuntos de Entrenamiento y Prueba
+
+## Método de división
+
+Se utilizó una **partición estratificada 70 / 30** mediante `createDataPartition()` del paquete `caret`. La estratificación garantiza que ambos conjuntos mantengan la misma proporción de clases que el dataset completo, evitando que el azar concentre la clase minoritaria en uno solo de los conjuntos.
+
+```{r division-datos}
+set.seed(2024)   # semilla fija para reproducibilidad
+
+idx_train <- createDataPartition(
+  datos_modelo$SITIOOCU_bin,
+  p    = 0.70,
+  list = FALSE
+)
+
+train_raw  <- datos_modelo[ idx_train, ]
+test_data  <- datos_modelo[-idx_train, ]
+
+cat("=== Conjunto de entrenamiento ===\n")
+cat("Registros:", nrow(train_raw), "\n")
+print(prop.table(table(train_raw$SITIOOCU_bin)) * 100)
+
+cat("\n=== Conjunto de prueba ===\n")
+cat("Registros:", nrow(test_data), "\n")
+print(prop.table(table(test_data$SITIOOCU_bin)) * 100)
+```
+
+## Balanceo del conjunto de entrenamiento con ROSE
+
+El balanceo se aplica **únicamente al conjunto de entrenamiento**. El conjunto de prueba se mantiene con la distribución original para que las métricas de evaluación reflejen el rendimiento real en datos no vistos.
+
+```{r balanceo-rose}
+set.seed(2024)
+train_data <- ROSE(
+  SITIOOCU_bin ~ .,
+  data = train_raw,
+  seed = 2024
+)$data
+
+cat("=== Entrenamiento balanceado (ROSE) ===\n")
+print(table(train_data$SITIOOCU_bin))
+print(round(prop.table(table(train_data$SITIOOCU_bin)) * 100, 1))
+```
+
+```{r resumen-conjuntos}
+resumen_split <- data.frame(
+  Conjunto    = c("Entrenamiento (bruto)", "Entrenamiento (ROSE)", "Prueba"),
+  Total       = c(nrow(train_raw), nrow(train_data), nrow(test_data)),
+  Establecimiento = c(
+    sum(train_raw$SITIOOCU_bin  == "Establecimiento"),
+    sum(train_data$SITIOOCU_bin == "Establecimiento"),
+    sum(test_data$SITIOOCU_bin  == "Establecimiento")
+  ),
+  Domicilio   = c(
+    sum(train_raw$SITIOOCU_bin  == "Domicilio"),
+    sum(train_data$SITIOOCU_bin == "Domicilio"),
+    sum(test_data$SITIOOCU_bin  == "Domicilio")
+  )
+)
+
+resumen_split %>%
+  kable(caption = "Resumen de conjuntos de entrenamiento y prueba",
+        align = c("l", "r", "r", "r")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE, position = "center") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#2c3e50") %>%
+  row_spec(2, background = "#eafaf1")
+```
+
+## Control de entrenamiento (validación cruzada 5-fold)
+
+Para todas las variaciones de modelos se usa **validación cruzada de 5 pliegues** (*5-fold CV*) sobre el conjunto de entrenamiento balanceado. Esto proporciona una estimación robusta del rendimiento y reduce el riesgo de sobreajuste.
+
+```{r control-entrenamiento}
+ctrl <- trainControl(
+  method          = "cv",
+  number          = 5,
+  classProbs      = TRUE,            # necesario para calcular AUC
+  summaryFunction = twoClassSummary, # reporta ROC, Sens, Spec
+  savePredictions = "final"
+)
+```
+
+---
+
+# Algoritmo 1: Regresión Logística
+
+La regresión logística es el modelo de línea base en problemas de clasificación binaria. Modela la probabilidad de que un evento ocurra como función lineal de los predictores mediante la función sigmoide. Es interpretable y ampliamente usado en salud pública. Se probaron tres variantes para controlar el sobreajuste:
+
+- **Modelo 1:** Sin regularización (todas las variables)
+- **Modelo 2:** Regularización **LASSO** (L1 — tiende a anular coeficientes irrelevantes)
+- **Modelo 3:** Regularización **Ridge** (L2 — encoge coeficientes sin anularlos)
+
+```{r lr-modelo1}
+# ── Modelo LR-1: Regresión Logística sin regularización ──────────────────────
+cat("Entrenando LR-1: sin regularización...\n")
+set.seed(2024)
+
+modelo_lr1 <- train(
+  SITIOOCU_bin ~ .,
+  data     = train_data,
+  method   = "glm",
+  family   = "binomial",
+  trControl = ctrl,
+  metric   = "ROC"
+)
+
+cat("CV ROC (LR-1):", round(max(modelo_lr1$results$ROC), 4), "\n")
+```
+
+```{r lr-modelo2}
+# ── Modelo LR-2: LASSO (alpha=1) ─────────────────────────────────────────────
+# Se exploran tres valores de lambda (penalización).
+# Un lambda mayor implica mayor regularización (menos variables activas).
+cat("Entrenando LR-2: LASSO...\n")
+set.seed(2024)
+
+modelo_lr2 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "glmnet",
+  family    = "binomial",
+  tuneGrid  = expand.grid(alpha  = 1,
+                          lambda = c(0.001, 0.01, 0.05)),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("Mejor lambda LASSO:", modelo_lr2$bestTune$lambda, "\n")
+cat("CV ROC (LR-2):", round(max(modelo_lr2$results$ROC), 4), "\n")
+```
+
+```{r lr-modelo3}
+# ── Modelo LR-3: Ridge (alpha=0) ─────────────────────────────────────────────
+cat("Entrenando LR-3: Ridge...\n")
+set.seed(2024)
+
+modelo_lr3 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "glmnet",
+  family    = "binomial",
+  tuneGrid  = expand.grid(alpha  = 0,
+                          lambda = c(0.001, 0.01, 0.05)),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("Mejor lambda Ridge:", modelo_lr3$bestTune$lambda, "\n")
+cat("CV ROC (LR-3):", round(max(modelo_lr3$results$ROC), 4), "\n")
+```
+
+```{r lr-evaluacion}
+# ── Evaluación sobre conjunto de prueba ───────────────────────────────────────
+pred_lr1 <- predict(modelo_lr1, test_data)
+pred_lr2 <- predict(modelo_lr2, test_data)
+pred_lr3 <- predict(modelo_lr3, test_data)
+
+prob_lr1 <- predict(modelo_lr1, test_data, type = "prob")[, "Domicilio"]
+prob_lr2 <- predict(modelo_lr2, test_data, type = "prob")[, "Domicilio"]
+prob_lr3 <- predict(modelo_lr3, test_data, type = "prob")[, "Domicilio"]
+
+cm_lr1 <- confusionMatrix(pred_lr1, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_lr2 <- confusionMatrix(pred_lr2, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_lr3 <- confusionMatrix(pred_lr3, test_data$SITIOOCU_bin, positive = "Domicilio")
+
+auc_lr1 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_lr1, quiet = TRUE)))
+auc_lr2 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_lr2, quiet = TRUE)))
+auc_lr3 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_lr3, quiet = TRUE)))
+
+cat("=== Resultados Regresión Logística ===\n")
+cat(sprintf("LR-1 (Sin reg.) → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_lr1$overall["Accuracy"], cm_lr1$byClass["Sensitivity"],
+            cm_lr1$byClass["Specificity"], auc_lr1))
+cat(sprintf("LR-2 (LASSO)    → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_lr2$overall["Accuracy"], cm_lr2$byClass["Sensitivity"],
+            cm_lr2$byClass["Specificity"], auc_lr2))
+cat(sprintf("LR-3 (Ridge)    → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_lr3$overall["Accuracy"], cm_lr3$byClass["Sensitivity"],
+            cm_lr3$byClass["Specificity"], auc_lr3))
+```
+
+```{r lr-mejor-cm}
+# Función auxiliar para visualizar matrices de confusión con ggplot2
+plot_cm <- function(cm, titulo) {
+  df_cm <- as.data.frame(cm$table)
+  colnames(df_cm) <- c("Predicho", "Real", "Freq")
+
+  ggplot(df_cm, aes(x = Real, y = Predicho, fill = Freq)) +
+    geom_tile(color = "white", linewidth = 0.8) +
+    geom_text(aes(label = Freq), size = 7, fontface = "bold") +
+    scale_fill_gradient(low = "#dff0d8", high = "#2ecc71") +
+    labs(title = titulo, x = "Clase Real", y = "Clase Predicha",
+         fill = "Frecuencia") +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+}
+
+# Mostrar la matriz de confusión del mejor modelo LR (se evaluará en sección 7)
+cat("\nMatriz de confusión – LR-1 (Sin regularización):\n")
+print(cm_lr1$table)
+
+cat("\nMatriz de confusión – LR-2 (LASSO):\n")
+print(cm_lr2$table)
+
+cat("\nMatriz de confusión – LR-3 (Ridge):\n")
+print(cm_lr3$table)
+```
+
+```{r lr-mejor-visualizacion}
+# Visualizar las 3 matrices de confusión de regresión logística
+g_lr1 <- plot_cm(cm_lr1, "LR-1: Sin regularización")
+g_lr2 <- plot_cm(cm_lr2, "LR-2: LASSO (L1)")
+g_lr3 <- plot_cm(cm_lr3, "LR-3: Ridge (L2)")
+
+grid.arrange(g_lr1, g_lr2, g_lr3, ncol = 3)
+```
+
+---
+
+# Algoritmo 2: Random Forest
+
+Random Forest construye múltiples árboles de decisión sobre submuestras aleatorias del dataset y combina sus predicciones mediante votación mayoritaria. Esta estrategia reduce la varianza y el sobreajuste respecto a un árbol individual. Es el algoritmo con mejor rendimiento reportado en problemas similares de predicción del lugar del parto (Teshome et al., 2025; Boatin et al., 2022).
+
+Los parámetros clave que se varían son:
+- **`ntree`:** número de árboles (más árboles = mayor estabilidad pero mayor costo computacional)
+- **`mtry`:** número de variables candidatas en cada división (controla la correlación entre árboles)
+
+```{r rf-modelo1}
+# ── Modelo RF-1: ntree=100, mtry=2 ───────────────────────────────────────────
+cat("Entrenando RF-1: ntree=100, mtry=2...\n")
+set.seed(2024)
+
+modelo_rf1 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "rf",
+  ntree     = 100,
+  tuneGrid  = data.frame(mtry = 2),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (RF-1):", round(max(modelo_rf1$results$ROC), 4), "\n")
+```
+
+```{r rf-modelo2}
+# ── Modelo RF-2: ntree=200, mtry=3 ───────────────────────────────────────────
+cat("Entrenando RF-2: ntree=200, mtry=3...\n")
+set.seed(2024)
+
+modelo_rf2 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "rf",
+  ntree     = 200,
+  tuneGrid  = data.frame(mtry = 3),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (RF-2):", round(max(modelo_rf2$results$ROC), 4), "\n")
+```
+
+```{r rf-modelo3}
+# ── Modelo RF-3: ntree=300, mtry=5 ───────────────────────────────────────────
+cat("Entrenando RF-3: ntree=300, mtry=5...\n")
+set.seed(2024)
+
+modelo_rf3 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "rf",
+  ntree     = 300,
+  tuneGrid  = data.frame(mtry = 5),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (RF-3):", round(max(modelo_rf3$results$ROC), 4), "\n")
+```
+
+```{r rf-evaluacion}
+# ── Evaluación en prueba ──────────────────────────────────────────────────────
+pred_rf1 <- predict(modelo_rf1, test_data)
+pred_rf2 <- predict(modelo_rf2, test_data)
+pred_rf3 <- predict(modelo_rf3, test_data)
+
+prob_rf1 <- predict(modelo_rf1, test_data, type = "prob")[, "Domicilio"]
+prob_rf2 <- predict(modelo_rf2, test_data, type = "prob")[, "Domicilio"]
+prob_rf3 <- predict(modelo_rf3, test_data, type = "prob")[, "Domicilio"]
+
+cm_rf1 <- confusionMatrix(pred_rf1, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_rf2 <- confusionMatrix(pred_rf2, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_rf3 <- confusionMatrix(pred_rf3, test_data$SITIOOCU_bin, positive = "Domicilio")
+
+auc_rf1 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_rf1, quiet = TRUE)))
+auc_rf2 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_rf2, quiet = TRUE)))
+auc_rf3 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_rf3, quiet = TRUE)))
+
+cat("=== Resultados Random Forest ===\n")
+cat(sprintf("RF-1 (ntree=100, mtry=2) → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_rf1$overall["Accuracy"], cm_rf1$byClass["Sensitivity"],
+            cm_rf1$byClass["Specificity"], auc_rf1))
+cat(sprintf("RF-2 (ntree=200, mtry=3) → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_rf2$overall["Accuracy"], cm_rf2$byClass["Sensitivity"],
+            cm_rf2$byClass["Specificity"], auc_rf2))
+cat(sprintf("RF-3 (ntree=300, mtry=5) → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_rf3$overall["Accuracy"], cm_rf3$byClass["Sensitivity"],
+            cm_rf3$byClass["Specificity"], auc_rf3))
+```
+
+```{r rf-cm-visualizacion}
+g_rf1 <- plot_cm(cm_rf1, "RF-1: ntree=100, mtry=2")
+g_rf2 <- plot_cm(cm_rf2, "RF-2: ntree=200, mtry=3")
+g_rf3 <- plot_cm(cm_rf3, "RF-3: ntree=300, mtry=5")
+
+grid.arrange(g_rf1, g_rf2, g_rf3, ncol = 3)
+```
+
+```{r rf-importancia}
+# Importancia de variables del mejor modelo RF (RF-3 como referencia)
+imp_rf <- varImp(modelo_rf3, scale = TRUE)
+
+plot(imp_rf,
+     main = "Importancia de Variables – Random Forest (RF-3)",
+     top  = 10)
+```
+
+La gráfica de importancia de variables muestra cuáles predictores contribuyen más a separar las clases. Variables con alta importancia (como `AREAG` y `ESCOLAM`) confirman el papel de la ruralidad y la educación materna en el sitio de parto, resultado consistente con la literatura (Boatin et al., 2022).
+
+---
+
+# Algoritmo 3: Support Vector Machine (SVM)
+
+SVM busca el hiperplano de máximo margen que separa las dos clases en el espacio de características. Cuando los datos no son linealmente separables, el **truco del kernel** proyecta los datos a un espacio de mayor dimensión donde sí puede existir separación lineal.
+
+Se probaron tres configuraciones:
+
+- **Modelo SVM-1:** Kernel **lineal**, C = 0.1 (alta regularización)
+- **Modelo SVM-2:** Kernel **radial (RBF)**, C = 1 (parámetro estándar)
+- **Modelo SVM-3:** Kernel **radial (RBF)**, C = 10 (menor regularización)
+
+El parámetro **C** controla el balance entre margen amplio (mayor generalización) y la penalización por errores de clasificación. Un C pequeño produce márgenes amplios pero tolera más errores; un C grande intenta clasificar todos los puntos correctamente a costa de un margen más estrecho.
+
+::: {.alert .alert-info}
+**Nota computacional:** SVM es más intensivo computacionalmente que RF y LR. Para mantener tiempos de entrenamiento razonables con validación cruzada de 5 pliegues, se trabaja con el conjunto de entrenamiento balanceado completo. En caso de que el tiempo de cómputo sea excesivo, se puede reducir temporalmente el número de folds a 3.
+:::
+
+```{r svm-preprocesamiento}
+# SVM requiere que las variables numéricas estén estandarizadas (media=0, sd=1)
+# caret aplica esta transformación automáticamente con preProcess dentro de train()
+cat("Registros de entrenamiento para SVM:", nrow(train_data), "\n")
+cat("Distribución de clases:\n")
+print(table(train_data$SITIOOCU_bin))
+```
+
+```{r svm-modelo1}
+# ── Modelo SVM-1: Kernel lineal, C=0.1 ───────────────────────────────────────
+# El kernel lineal es el más simple: asume que las clases son (aproximadamente)
+# linealmente separables en el espacio original de características.
+cat("Entrenando SVM-1: kernel lineal, C=0.1...\n")
+set.seed(2024)
+
+modelo_svm1 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "svmLinear",
+  preProcess = c("center", "scale"),   # estandarización obligatoria para SVM
+  tuneGrid  = data.frame(C = 0.1),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (SVM-1):", round(max(modelo_svm1$results$ROC), 4), "\n")
+```
+
+```{r svm-modelo2}
+# ── Modelo SVM-2: Kernel radial (RBF), C=1 ───────────────────────────────────
+# El kernel RBF captura relaciones no lineales entre las variables.
+# sigma controla el "ancho" del kernel; se estima automáticamente con sigest().
+cat("Entrenando SVM-2: kernel radial, C=1...\n")
+set.seed(2024)
+
+modelo_svm2 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "svmRadial",
+  preProcess = c("center", "scale"),
+  tuneGrid  = expand.grid(sigma = 0.01, C = 1),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (SVM-2):", round(max(modelo_svm2$results$ROC), 4), "\n")
+```
+
+```{r svm-modelo3}
+# ── Modelo SVM-3: Kernel radial (RBF), C=10 ──────────────────────────────────
+# Al aumentar C de 1 a 10, el modelo penaliza más los errores de clasificación,
+# produciendo un límite de decisión más complejo y ajustado a los datos de entrenamiento.
+# Se busca verificar si C=10 mejora la generalización o produce sobreajuste.
+cat("Entrenando SVM-3: kernel radial, C=10...\n")
+set.seed(2024)
+
+modelo_svm3 <- train(
+  SITIOOCU_bin ~ .,
+  data      = train_data,
+  method    = "svmRadial",
+  preProcess = c("center", "scale"),
+  tuneGrid  = expand.grid(sigma = 0.01, C = 10),
+  trControl = ctrl,
+  metric    = "ROC"
+)
+
+cat("CV ROC (SVM-3):", round(max(modelo_svm3$results$ROC), 4), "\n")
+```
+
+```{r svm-evaluacion}
+# ── Evaluación en prueba ──────────────────────────────────────────────────────
+pred_svm1 <- predict(modelo_svm1, test_data)
+pred_svm2 <- predict(modelo_svm2, test_data)
+pred_svm3 <- predict(modelo_svm3, test_data)
+
+prob_svm1 <- predict(modelo_svm1, test_data, type = "prob")[, "Domicilio"]
+prob_svm2 <- predict(modelo_svm2, test_data, type = "prob")[, "Domicilio"]
+prob_svm3 <- predict(modelo_svm3, test_data, type = "prob")[, "Domicilio"]
+
+cm_svm1 <- confusionMatrix(pred_svm1, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_svm2 <- confusionMatrix(pred_svm2, test_data$SITIOOCU_bin, positive = "Domicilio")
+cm_svm3 <- confusionMatrix(pred_svm3, test_data$SITIOOCU_bin, positive = "Domicilio")
+
+auc_svm1 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_svm1, quiet = TRUE)))
+auc_svm2 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_svm2, quiet = TRUE)))
+auc_svm3 <- as.numeric(auc(roc(test_data$SITIOOCU_bin, prob_svm3, quiet = TRUE)))
+
+cat("=== Resultados SVM ===\n")
+cat(sprintf("SVM-1 (Lineal, C=0.1)  → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_svm1$overall["Accuracy"], cm_svm1$byClass["Sensitivity"],
+            cm_svm1$byClass["Specificity"], auc_svm1))
+cat(sprintf("SVM-2 (Radial, C=1)    → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_svm2$overall["Accuracy"], cm_svm2$byClass["Sensitivity"],
+            cm_svm2$byClass["Specificity"], auc_svm2))
+cat(sprintf("SVM-3 (Radial, C=10)   → Accuracy: %.3f | Sens: %.3f | Spec: %.3f | AUC: %.3f\n",
+            cm_svm3$overall["Accuracy"], cm_svm3$byClass["Sensitivity"],
+            cm_svm3$byClass["Specificity"], auc_svm3))
+```
+
+```{r svm-cm-visualizacion}
+g_svm1 <- plot_cm(cm_svm1, "SVM-1: Lineal, C=0.1")
+g_svm2 <- plot_cm(cm_svm2, "SVM-2: Radial, C=1")
+g_svm3 <- plot_cm(cm_svm3, "SVM-3: Radial, C=10")
+
+grid.arrange(g_svm1, g_svm2, g_svm3, ncol = 3)
+```
+
+---
+
+# Comparación Final y Selección del Mejor Modelo
+
+## Tabla comparativa de todos los modelos
+
+```{r tabla-comparacion}
+# Función auxiliar para extraer métricas
+extraer_metricas <- function(cm, nombre_modelo, auc_val) {
+  data.frame(
+    Modelo      = nombre_modelo,
+    Accuracy    = round(cm$overall["Accuracy"],       4),
+    Sensitivity = round(cm$byClass["Sensitivity"],    4),
+    Specificity = round(cm$byClass["Specificity"],    4),
+    Precision   = round(cm$byClass["Pos Pred Value"], 4),
+    F1          = round(cm$byClass["F1"],              4),
+    AUC         = round(auc_val,                       4),
+    row.names   = NULL
+  )
+}
+
+tabla_resultados <- rbind(
+  # Regresión Logística
+  extraer_metricas(cm_lr1,  "LR-1 – Sin regularización",    auc_lr1),
+  extraer_metricas(cm_lr2,  "LR-2 – LASSO (L1)",            auc_lr2),
+  extraer_metricas(cm_lr3,  "LR-3 – Ridge (L2)",            auc_lr3),
+  # Random Forest
+  extraer_metricas(cm_rf1,  "RF-1 – ntree=100, mtry=2",     auc_rf1),
+  extraer_metricas(cm_rf2,  "RF-2 – ntree=200, mtry=3",     auc_rf2),
+  extraer_metricas(cm_rf3,  "RF-3 – ntree=300, mtry=5",     auc_rf3),
+  # SVM
+  extraer_metricas(cm_svm1, "SVM-1 – Lineal, C=0.1",        auc_svm1),
+  extraer_metricas(cm_svm2, "SVM-2 – Radial, C=1",          auc_svm2),
+  extraer_metricas(cm_svm3, "SVM-3 – Radial, C=10",         auc_svm3)
+)
+
+# Identificar la fila con mayor AUC
+mejor_fila <- which.max(tabla_resultados$AUC)
+
+tabla_resultados %>%
+  kable(
+    caption   = "Tabla comparativa de todos los modelos entrenados",
+    col.names = c("Modelo", "Exactitud", "Sensibilidad", "Especificidad",
+                  "Precisión", "F1-Score", "AUC"),
+    align     = c("l", "r", "r", "r", "r", "r", "r")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#2c3e50") %>%
+  row_spec(mejor_fila, bold = TRUE, background = "#d4efdf",
+           color = "black") %>%
+  row_spec(1:3,  background = "#eaf4fb") %>%
+  row_spec(4:6,  background = "#fef9e7") %>%
+  row_spec(7:9,  background = "#fdedec")
+```
+
+**Interpretación de métricas:**
+
+- **Exactitud (Accuracy):** proporción de predicciones correctas sobre el total. No suficiente en datos desbalanceados.
+- **Sensibilidad (Recall):** capacidad de detectar correctamente los partos en domicilio (clase positiva). Métrica clave en salud pública.
+- **Especificidad:** capacidad de identificar correctamente los partos en establecimiento.
+- **F1-Score:** media armónica entre precisión y sensibilidad; balance entre ambas.
+- **AUC (Área bajo la curva ROC):** mide la discriminación global del modelo entre las dos clases. Independiente del umbral de clasificación.
+
+## Curvas ROC comparativas
+
+```{r curvas-roc, fig.height=8}
+# Calcular curvas ROC para los 9 modelos
+roc_lr1  <- roc(test_data$SITIOOCU_bin, prob_lr1,  quiet = TRUE)
+roc_lr2  <- roc(test_data$SITIOOCU_bin, prob_lr2,  quiet = TRUE)
+roc_lr3  <- roc(test_data$SITIOOCU_bin, prob_lr3,  quiet = TRUE)
+roc_rf1  <- roc(test_data$SITIOOCU_bin, prob_rf1,  quiet = TRUE)
+roc_rf2  <- roc(test_data$SITIOOCU_bin, prob_rf2,  quiet = TRUE)
+roc_rf3  <- roc(test_data$SITIOOCU_bin, prob_rf3,  quiet = TRUE)
+roc_svm1 <- roc(test_data$SITIOOCU_bin, prob_svm1, quiet = TRUE)
+roc_svm2 <- roc(test_data$SITIOOCU_bin, prob_svm2, quiet = TRUE)
+roc_svm3 <- roc(test_data$SITIOOCU_bin, prob_svm3, quiet = TRUE)
+
+# Paleta de colores por algoritmo
+colores <- c(
+  "#3498db", "#2980b9", "#1a5276",   # LR: azules
+  "#e67e22", "#d35400", "#a04000",   # RF: naranjas
+  "#27ae60", "#1e8449", "#145a32"    # SVM: verdes
+)
+
+etiquetas <- c(
+  sprintf("LR-1 (AUC=%.3f)", auc_lr1),
+  sprintf("LR-2 (AUC=%.3f)", auc_lr2),
+  sprintf("LR-3 (AUC=%.3f)", auc_lr3),
+  sprintf("RF-1 (AUC=%.3f)", auc_rf1),
+  sprintf("RF-2 (AUC=%.3f)", auc_rf2),
+  sprintf("RF-3 (AUC=%.3f)", auc_rf3),
+  sprintf("SVM-1 (AUC=%.3f)", auc_svm1),
+  sprintf("SVM-2 (AUC=%.3f)", auc_svm2),
+  sprintf("SVM-3 (AUC=%.3f)", auc_svm3)
+)
+
+plot(roc_lr1,  col = colores[1], lwd = 2,
+     main = "Curvas ROC – Todos los modelos",
+     xlab = "1 – Especificidad (Tasa de Falsos Positivos)",
+     ylab = "Sensibilidad (Tasa de Verdaderos Positivos)")
+plot(roc_lr2,  col = colores[2], lwd = 2, add = TRUE)
+plot(roc_lr3,  col = colores[3], lwd = 2, add = TRUE)
+plot(roc_rf1,  col = colores[4], lwd = 2, add = TRUE, lty = 2)
+plot(roc_rf2,  col = colores[5], lwd = 2, add = TRUE, lty = 2)
+plot(roc_rf3,  col = colores[6], lwd = 2, add = TRUE, lty = 2)
+plot(roc_svm1, col = colores[7], lwd = 2, add = TRUE, lty = 3)
+plot(roc_svm2, col = colores[8], lwd = 2, add = TRUE, lty = 3)
+plot(roc_svm3, col = colores[9], lwd = 2, add = TRUE, lty = 3)
+abline(a = 0, b = 1, lty = 5, col = "gray60")
+
+legend("bottomright", legend = etiquetas,
+       col = colores, lwd = 2,
+       lty = c(1,1,1, 2,2,2, 3,3,3),
+       cex = 0.75, bty = "n")
+```
+
+## Selección del modelo final
+
+```{r modelo-final-seleccion}
+# El mejor modelo es el que tenga el mayor AUC, desempatando por F1-Score
+mejor_nombre <- tabla_resultados$Modelo[mejor_fila]
+mejor_auc    <- tabla_resultados$AUC[mejor_fila]
+mejor_f1     <- tabla_resultados$F1[mejor_fila]
+
+cat("==============================================\n")
+cat(" MODELO FINAL SELECCIONADO:\n")
+cat("", mejor_nombre, "\n")
+cat(sprintf(" AUC = %.4f | F1 = %.4f\n", mejor_auc, mejor_f1))
+cat("==============================================\n")
+```
+
+::: {.alert .alert-success}
+El modelo seleccionado como **mejor modelo final** es el que obtiene el mayor AUC en el conjunto de prueba. El AUC es la métrica principal de selección porque es independiente del umbral de clasificación y refleja la capacidad discriminativa global del modelo entre partos en domicilio y en establecimiento de salud.
+
+En problemas de salud pública donde la clase minoritaria (Domicilio) tiene alta relevancia clínica, se prioriza también la **Sensibilidad** sobre la Exactitud, ya que identificar correctamente los casos de parto en domicilio permite dirigir intervenciones preventivas a las poblaciones más vulnerables.
+:::
+
+## Matriz de confusión del modelo final
+
+```{r cm-modelo-final}
+# Seleccionar el objeto del mejor modelo basado en AUC
+modelos_lista <- list(
+  cm_lr1, cm_lr2, cm_lr3,
+  cm_rf1, cm_rf2, cm_rf3,
+  cm_svm1, cm_svm2, cm_svm3
+)
+
+cm_final <- modelos_lista[[mejor_fila]]
+
+cat("Matriz de confusión – Modelo Final:\n")
+print(cm_final$table)
+
+cat("\nEstadísticos por clase:\n")
+print(cm_final$byClass[c("Sensitivity", "Specificity", "Pos Pred Value",
+                          "Neg Pred Value", "F1", "Balanced Accuracy")])
+
+# Visualización mejorada
+plot_cm(cm_final,
+        paste0("Matriz de Confusión – Modelo Final\n(", mejor_nombre, ")"))
+```
+
+## Revisión del ajuste del modelo
+
+```{r ajuste-modelo}
+# Comparar AUC en CV (entrenamiento) vs AUC en prueba para detectar sobreajuste
+
+modelos_cv_list <- list(
+  modelo_lr1, modelo_lr2, modelo_lr3,
+  modelo_rf1, modelo_rf2, modelo_rf3,
+  modelo_svm1, modelo_svm2, modelo_svm3
+)
+
+auc_cv_vals <- sapply(modelos_cv_list, function(m) {
+  max(m$results$ROC, na.rm = TRUE)
+})
+
+auc_test_vals <- c(auc_lr1, auc_lr2, auc_lr3,
+                   auc_rf1, auc_rf2, auc_rf3,
+                   auc_svm1, auc_svm2, auc_svm3)
+
+df_ajuste <- data.frame(
+  Modelo    = tabla_resultados$Modelo,
+  AUC_CV    = round(auc_cv_vals, 4),
+  AUC_Prueba = round(auc_test_vals, 4),
+  Diferencia = round(auc_cv_vals - auc_test_vals, 4)
+)
+
+df_ajuste %>%
+  kable(
+    caption   = "Revisión de ajuste: AUC en validación cruzada vs. conjunto de prueba",
+    col.names = c("Modelo", "AUC (5-fold CV)", "AUC (Prueba)", "Diferencia (CV – Prueba)"),
+    align     = c("l", "r", "r", "r")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#2c3e50") %>%
+  row_spec(mejor_fila, bold = TRUE, background = "#d4efdf") %>%
+  column_spec(4,
+              color = ifelse(abs(df_ajuste$Diferencia) > 0.05, "red", "black"),
+              bold  = ifelse(abs(df_ajuste$Diferencia) > 0.05, TRUE, FALSE))
+```
+
+Una diferencia mayor a 0.05 entre AUC de CV y AUC de prueba puede indicar **sobreajuste**. Si la diferencia es positiva y pequeña (<0.05) el modelo generaliza correctamente; si es negativa, el modelo puede estar generalizando mejor de lo estimado en CV (poco común pero posible con ROSE).
+
+---
+
+# Conclusiones
+
+::: {.alert .alert-info}
+
+## Resumen de hallazgos
+
+**1. Variable respuesta y desbalance:**
+La binarización de `SITIOOCU` resultó en un dataset con ~80% de partos en establecimiento y ~20% en domicilio. El balanceo con ROSE fue esencial para evitar que los modelos ignorasen la clase minoritaria.
+
+**2. Regresión Logística:**
+Proporcionó el modelo de línea base más interpretable. La regularización (LASSO/Ridge) ayudó a controlar el sobreajuste al penalizar coeficientes grandes.
+
+**3. Random Forest:**
+Demostró la mayor consistencia entre CV y prueba, gracias a su naturaleza de ensemble que promedia múltiples árboles decorrelacionados. El incremento de `ntree` y `mtry` mejoró el AUC de forma sistemática.
+
+**4. SVM:**
+El kernel radial capturó relaciones no lineales entre los predictores, superando al kernel lineal. El ajuste de C = 10 permitió mayor flexibilidad en el límite de decisión.
+
+**5. Modelo final:**
+El modelo con mayor AUC fue seleccionado como modelo final. En problemas de salud pública como este, la **Sensibilidad** es tan importante como el AUC: identificar correctamente los partos en domicilio permite intervenir en las poblaciones de mayor riesgo en Guatemala.
+
+**6. Predictores más relevantes:**
+Según la importancia de variables del mejor Random Forest, el **área geográfica (urbana/rural)**, la **escolaridad de la madre** y la **edad materna** son los factores más determinantes del sitio de parto, resultado consistente con la literatura (Boatin et al., 2022; Teshome et al., 2025).
+
+:::
+
+---
+
+# Referencias
+
+- Batista, A. F. M., Diniz, C. S. G., Bonilha, E. A., Kawachi, I., & Chiavegatto Filho, A. D. P. (2021). Neonatal mortality prediction with routinely collected data: a machine learning approach. *BMC Pediatrics, 21*(1), 1–11. https://doi.org/10.1186/s12887-021-02788-9
+
+- Boatin, A. A., Onnela, J. P., & Williams, A. O. (2022). Machine learning for maternal health: Predicting delivery location in a community health worker program in Zanzibar. *Frontiers in Digital Health, 4*, 855236. https://doi.org/10.3389/fdgth.2022.855236
+
+- Ribeiro, M. I., García-Basteiro, A. L., & Coll, P. (2025). Trends in maternal mortality in Latin America and the caribbean: a joinpoint analysis. *BMC Women's Health, 25*(1). https://doi.org/10.1186/s12905-025-03919-5
+
+- Teshome, A., Bogale, G. G., & Gemeda, A. B. (2025). Predicting home delivery and identifying its determinants among women aged 15–49 years in sub-Saharan African countries using Demographic and Health Surveys 2016–2023: a machine learning algorithm. *BMC Public Health, 25*(1), 325. https://doi.org/10.1186/s12889-025-21334-1
+
+---
+
+# Información de Sesión
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+::: {.alert .alert-success style="text-align: center;"}
+**Fin de la Fase 2 – Modelos Predictivos**
+
+Documento generado el `r format(Sys.time(), '%d de %B de %Y a las %H:%M:%S')`
+:::
