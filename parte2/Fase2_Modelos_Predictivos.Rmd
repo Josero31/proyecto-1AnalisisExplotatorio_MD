@@ -184,7 +184,7 @@ tabla_bin <- table(datos_modelo$SITIOOCU_bin)
 df_balance <- data.frame(
   Clase    = names(tabla_bin),
   n        = as.integer(tabla_bin),
-  Porcentaje = round(prop.table(tabla_bin) * 100, 1)
+  Porcentaje = round(as.numeric(prop.table(tabla_bin)) * 100, 1)
 )
 
 df_balance %>%
